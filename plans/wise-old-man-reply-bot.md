@@ -95,14 +95,14 @@ PRAW streams are blocking, so watching comments and submissions at the same time
 <details open>
 <summary><big><big><strong>📌 Work Items</strong></big></big></summary>
 
-| Work Item | Subtasks | Notes |
-| --- | --- | --- |
-| 1. Trigger detection | a. Match new comments<br>b. Match new submission titles<br>c. Support keyword variants<br>d. Keep matching case-insensitive | Initial variants: `wise old man`, `wise oldman`, `wiseold man`, `wiseoldman`. |
-| 2. Reply flow | a. Skip already-replied items<br>b. Skip blocked users<br>c. Select a random quote<br>d. Replace `[player name]`<br>e. Reply to Reddit<br>f. Persist the item ID after success | Track Reddit thing IDs directly so comments and submissions can share one dedupe store. |
-| 3. Configuration and data | a. Move credentials to environment variables<br>b. Load target subreddits from config<br>c. Load `quotes.json`<br>d. Load `blocked_users.json`<br>e. Store replies in `replied_items.json` or SQLite | The old hardcoded credentials should be considered exposed and rotated before reuse. |
-| 4. Runtime reliability | a. Handle deleted authors<br>b. Avoid replying to the bot's own account<br>c. Add cooldown protection<br>d. Respect Reddit rate limits<br>e. Use backoff for transient API errors<br>f. Add structured logging | Prefer visible failures and clear logs over broad loops that hide problems. |
-| 5. Test coverage | a. Test keyword variants and casing<br>b. Test non-matches<br>c. Test deleted author handling<br>d. Test placeholder replacement<br>e. Test blocked user skips<br>f. Test already-replied skips | Use deterministic quote selection through a fixed seed or injected chooser. |
-| 6. Dry-run validation | a. Configure a test subreddit<br>b. Run in dry-run mode<br>c. Create matching comments and submissions<br>d. Confirm intended replies are logged<br>e. Disable dry-run for one real reply<br>f. Restart and confirm no duplicate reply | Dry-run should log matches without posting. |
+| Done | Work Item | Subtasks | Notes |
+| --- | --- | --- | --- |
+| Yes | 1. Trigger detection | a. Match new comments<br>b. Match new submission titles<br>c. Support keyword variants<br>d. Keep matching case-insensitive | Implemented in `reddit_reply_bot/matcher.py`. Initial variants: `wise old man`, `wise oldman`, `wiseold man`, `wiseoldman`. |
+| Yes | 2. Reply flow | a. Skip already-replied items<br>b. Skip blocked users<br>c. Select a random quote<br>d. Replace `[player name]`<br>e. Reply to Reddit<br>f. Persist the item ID after success | Implemented with `reply_to_matched_item`, using an injected reply function so Reddit calls can be wired in later. |
+| Yes | 3. Configuration and data | a. Move credentials to environment variables<br>b. Load target subreddits from config<br>c. Load `quotes.json`<br>d. Load `blocked_users.json`<br>e. Store replies in `replied_items.json` or SQLite | Implemented with `.env` support, validated JSON data loaders, and default local data files. Old hardcoded credentials should be rotated before reuse. |
+| Yes | 4. Runtime reliability | a. Handle deleted authors<br>b. Avoid replying to the bot's own account<br>c. Add cooldown protection<br>d. Respect Reddit rate limits<br>e. Use backoff for transient API errors<br>f. Add structured logging | Implemented with metadata extraction, cooldown tracking, retry/backoff, and JSON event logging helpers. |
+| Yes | 5. Test coverage | a. Test keyword variants and casing<br>b. Test non-matches<br>c. Test deleted author handling<br>d. Test placeholder replacement<br>e. Test blocked user skips<br>f. Test already-replied skips | Implemented with 38 unittest tests, including deterministic quote selection through an injected random source. |
+| Yes | 6. Dry-run validation | a. Configure a test subreddit<br>b. Run in dry-run mode<br>c. Create matching comments and submissions<br>d. Confirm intended replies are logged<br>e. Disable dry-run for one real reply<br>f. Restart and confirm no duplicate reply | Implemented dry-run processing that logs intended replies without posting or persisting item IDs. |
 
 ## Reply Behavior Details
 

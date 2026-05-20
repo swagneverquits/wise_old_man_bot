@@ -1,0 +1,8 @@
+name: reddit-reply-bot
+dependencies:
+  - python=3.11
+  - pip
+  - pytest
+  - pip:
+      - python-dotenv
+      - praw
