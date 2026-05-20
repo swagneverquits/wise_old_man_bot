@@ -23,6 +23,7 @@ def process_comment(
     replied_store_path: Path,
     blocked_users: set[str],
     bot_username: str,
+    allow_self_reply: bool,
     reply: ReplyFunction,
     dry_run: bool,
     logger: logging.Logger,
@@ -39,6 +40,7 @@ def process_comment(
         replied_store_path=replied_store_path,
         blocked_users=blocked_users,
         bot_username=bot_username,
+        allow_self_reply=allow_self_reply,
         reply=reply,
         dry_run=dry_run,
         logger=logger,
@@ -53,6 +55,7 @@ def process_submission(
     replied_store_path: Path,
     blocked_users: set[str],
     bot_username: str,
+    allow_self_reply: bool,
     reply: ReplyFunction,
     dry_run: bool,
     logger: logging.Logger,
@@ -60,15 +63,19 @@ def process_submission(
     chooser: random.Random | None = None,
 ) -> bool:
     """Process one Reddit submission."""
+    title = getattr(submission, "title", None) or ""
+    selftext = getattr(submission, "selftext", None) or ""
+
     return _process_item(
         item=submission,
         kind="submission",
-        text=getattr(submission, "title", None),
+        text=f"{title}\n{selftext}",
         is_match=submission_matches,
         quotes=quotes,
         replied_store_path=replied_store_path,
         blocked_users=blocked_users,
         bot_username=bot_username,
+        allow_self_reply=allow_self_reply,
         reply=reply,
         dry_run=dry_run,
         logger=logger,
@@ -86,6 +93,7 @@ def _process_item(
     replied_store_path: Path,
     blocked_users: set[str],
     bot_username: str,
+    allow_self_reply: bool,
     reply: ReplyFunction,
     dry_run: bool,
     logger: logging.Logger,
@@ -104,7 +112,7 @@ def _process_item(
         metadata.username,
         replied_ids,
         blocked_users,
-        bot_username,
+        None if allow_self_reply else bot_username,
     ):
         log_reply_event(logger, "reply_skip", metadata, "decision_skip")
         return False
@@ -135,4 +143,3 @@ def _process_item(
 
     log_reply_event(logger, "reply_posted", metadata, "posted")
     return True
-

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
+from collections.abc import Callable
 
 from prawcore.exceptions import PrawcoreException
 
@@ -18,8 +20,10 @@ LOGGER = logging.getLogger("reddit_reply_bot")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Wise Old Man Reddit reply bot")
-    parser.add_argument("--limit", type=int, default=25)
+    parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--cooldown-seconds", type=float, default=10)
+    parser.add_argument("--loop", action="store_true")
+    parser.add_argument("--interval-seconds", type=float, default=300)
     args = parser.parse_args()
 
     configure_logging()
@@ -31,47 +35,105 @@ def main() -> None:
     cooldown = Cooldown(args.cooldown_seconds)
 
     LOGGER.info(
-        "starting_poll subreddits=%s dry_run=%s limit=%s",
+        "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s",
         config.subreddits,
         config.dry_run,
+        config.allow_self_reply,
         args.limit,
+        args.loop,
+        args.interval_seconds,
     )
 
-    def poll() -> None:
-        for comment in subreddit.comments(limit=args.limit):
-            process_comment(
-                comment=comment,
-                quotes=quotes,
-                replied_store_path=config.replied_items_path,
-                blocked_users=blocked_users,
-                bot_username=config.reddit.username,
-                reply=comment.reply,
-                dry_run=config.dry_run,
-                logger=LOGGER,
-                cooldown=cooldown,
-            )
+    poll_once = lambda: poll_subreddit(
+        subreddit=subreddit,
+        limit=args.limit,
+        quotes=quotes,
+        replied_store_path=config.replied_items_path,
+        blocked_users=blocked_users,
+        bot_username=config.reddit.username,
+        allow_self_reply=config.allow_self_reply,
+        dry_run=config.dry_run,
+        cooldown=cooldown,
+        logger=LOGGER,
+    )
 
-        for submission in subreddit.new(limit=args.limit):
-            process_submission(
-                submission=submission,
-                quotes=quotes,
-                replied_store_path=config.replied_items_path,
-                blocked_users=blocked_users,
-                bot_username=config.reddit.username,
-                reply=submission.reply,
-                dry_run=config.dry_run,
-                logger=LOGGER,
-                cooldown=cooldown,
-            )
+    if args.loop:
+        run_loop(poll_once, args.interval_seconds, LOGGER)
+        return
 
+    run_poll_with_retry(poll_once)
+
+
+def run_loop(
+    poll_once: Callable[[], None],
+    interval_seconds: float,
+    logger: logging.Logger,
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    """Run polling continuously until interrupted."""
+    if interval_seconds <= 0:
+        raise ValueError("interval_seconds must be greater than 0")
+
+    try:
+        while True:
+            run_poll_with_retry(poll_once)
+            logger.info("poll_sleep interval_seconds=%s", interval_seconds)
+            sleep(interval_seconds)
+    except KeyboardInterrupt:
+        logger.info("shutdown_requested")
+
+
+def run_poll_with_retry(poll_once: Callable[[], None]) -> None:
+    """Run one poll with retry handling for transient Reddit failures."""
     retry_with_backoff(
-        poll,
+        poll_once,
         retry_exceptions=(PrawcoreException,),
         attempts=3,
         initial_delay_seconds=2,
     )
 
 
+def poll_subreddit(
+    subreddit,
+    limit: int,
+    quotes: list[str],
+    replied_store_path,
+    blocked_users: set[str],
+    bot_username: str,
+    allow_self_reply: bool,
+    dry_run: bool,
+    cooldown: Cooldown,
+    logger: logging.Logger,
+) -> None:
+    """Poll recent subreddit comments and submissions once."""
+    for comment in subreddit.comments(limit=limit):
+        process_comment(
+            comment=comment,
+            quotes=quotes,
+            replied_store_path=replied_store_path,
+            blocked_users=blocked_users,
+            bot_username=bot_username,
+            allow_self_reply=allow_self_reply,
+            reply=comment.reply,
+            dry_run=dry_run,
+            logger=logger,
+            cooldown=cooldown,
+        )
+
+    for submission in subreddit.new(limit=limit):
+        process_submission(
+            submission=submission,
+            quotes=quotes,
+            replied_store_path=replied_store_path,
+            blocked_users=blocked_users,
+            bot_username=bot_username,
+            allow_self_reply=allow_self_reply,
+            reply=submission.reply,
+            dry_run=dry_run,
+            logger=logger,
+            cooldown=cooldown,
+        )
+
+
 if __name__ == "__main__":
     main()
-

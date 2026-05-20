@@ -42,6 +42,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.blocked_users_path, Path("blocked_users.json"))
         self.assertEqual(config.replied_items_path, Path("replied_items.json"))
         self.assertTrue(config.dry_run)
+        self.assertFalse(config.allow_self_reply)
 
     def test_overrides_optional_values(self) -> None:
         env = {
@@ -55,6 +56,7 @@ class ConfigTests(unittest.TestCase):
             "BLOCKED_USERS_PATH": "data/blocked_users.json",
             "REPLIED_ITEMS_PATH": "data/replied_items.json",
             "DRY_RUN": "false",
+            "ALLOW_SELF_REPLY": "true",
         }
 
         with patch.dict(os.environ, env, clear=True):
@@ -65,6 +67,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.blocked_users_path, Path("data/blocked_users.json"))
         self.assertEqual(config.replied_items_path, Path("data/replied_items.json"))
         self.assertFalse(config.dry_run)
+        self.assertTrue(config.allow_self_reply)
 
     def test_rejects_missing_required_credentials(self) -> None:
         with patch.dict(os.environ, {}, clear=True):

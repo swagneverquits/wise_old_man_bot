@@ -19,6 +19,7 @@ conda env update -f environment.yml --prune
 
 Miniconda is installed for this user. If `conda` is not available in the current terminal, close and reopen PowerShell so the Conda initialization takes effect.
 
+
 ## Configuration
 
 Create a local `.env` file from the example and fill in Reddit credentials:
@@ -62,7 +63,7 @@ Switch `DRY_RUN=false` only after confirming the logs show the replies you expec
 To validate against Reddit safely:
 
 1. Set `REDDIT_SUBREDDITS=test` and `DRY_RUN=true` in `.env`.
-2. Create a post or comment in `https://www.reddit.com/r/test/` that mentions `wise old man`.
+2. Create a post or comment in `https://www.reddit.com/r/test/` that mentions `wise old man` in the comment body, post title, or post body.
 3. Run a one-shot poll:
 
 ```powershell
@@ -71,3 +72,13 @@ conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 
 4. Confirm the logs include `dry_run_reply`.
 5. Set `DRY_RUN=false` only when ready to test one real reply.
+
+## Continuous Mode
+
+Run continuously with 5-minute polling:
+
+```powershell
+conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
+```
+
+Deployment notes and a sample `systemd` service are in `DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.

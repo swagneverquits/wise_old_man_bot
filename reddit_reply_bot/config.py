@@ -26,6 +26,7 @@ class BotConfig:
     blocked_users_path: Path
     replied_items_path: Path
     dry_run: bool
+    allow_self_reply: bool
 
 
 def load_config(env_file: Path | None = None, load_default_dotenv: bool = True) -> BotConfig:
@@ -48,6 +49,7 @@ def load_config(env_file: Path | None = None, load_default_dotenv: bool = True) 
         blocked_users_path=Path(_env("BLOCKED_USERS_PATH", "blocked_users.json")),
         replied_items_path=Path(_env("REPLIED_ITEMS_PATH", "replied_items.json")),
         dry_run=_bool_env("DRY_RUN", default=True),
+        allow_self_reply=_bool_env("ALLOW_SELF_REPLY", default=False),
     )
 
 

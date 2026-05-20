@@ -27,9 +27,15 @@ class Submission:
     id = "submission123"
     subreddit = "test"
 
-    def __init__(self, title: str, author: Author | None = None) -> None:
+    def __init__(
+        self,
+        title: str,
+        author: Author | None = None,
+        selftext: str = "",
+    ) -> None:
         self.title = title
         self.author = author
+        self.selftext = selftext
 
 
 class BotProcessingTests(unittest.TestCase):
@@ -46,6 +52,7 @@ class BotProcessingTests(unittest.TestCase):
                     replied_store_path=store_path,
                     blocked_users=set(),
                     bot_username="wise-old-man-bot",
+                    allow_self_reply=False,
                     reply=replies.append,
                     dry_run=True,
                     logger=logger,
@@ -69,6 +76,7 @@ class BotProcessingTests(unittest.TestCase):
                 replied_store_path=store_path,
                 blocked_users=set(),
                 bot_username="wise-old-man-bot",
+                allow_self_reply=False,
                 reply=replies.append,
                 dry_run=False,
                 logger=logger,
@@ -90,6 +98,31 @@ class BotProcessingTests(unittest.TestCase):
                 replied_store_path=store_path,
                 blocked_users=set(),
                 bot_username="wise-old-man-bot",
+                allow_self_reply=False,
+                reply=lambda _: None,
+                dry_run=True,
+                logger=logger,
+                chooser=random.Random(1),
+            )
+
+            self.assertTrue(did_process)
+
+    def test_submission_body_can_trigger_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+            logger = logging.getLogger("test-dry-run-submission-body")
+
+            did_process = process_submission(
+                submission=Submission(
+                    "A normal title",
+                    Author("Player"),
+                    selftext="The body says wise old man.",
+                ),
+                quotes=["Hello, [player name]."],
+                replied_store_path=store_path,
+                blocked_users=set(),
+                bot_username="wise-old-man-bot",
+                allow_self_reply=False,
                 reply=lambda _: None,
                 dry_run=True,
                 logger=logger,
@@ -110,6 +143,7 @@ class BotProcessingTests(unittest.TestCase):
                 replied_store_path=store_path,
                 blocked_users=set(),
                 bot_username="wise-old-man-bot",
+                allow_self_reply=False,
                 reply=replies.append,
                 dry_run=False,
                 logger=logger,
@@ -133,6 +167,7 @@ class BotProcessingTests(unittest.TestCase):
                 replied_store_path=store_path,
                 blocked_users=set(),
                 bot_username="wise-old-man-bot",
+                allow_self_reply=False,
                 reply=replies.append,
                 dry_run=False,
                 logger=logger,
@@ -142,7 +177,27 @@ class BotProcessingTests(unittest.TestCase):
             self.assertFalse(did_process)
             self.assertEqual(replies, [])
 
+    def test_can_allow_self_reply_for_testing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+            replies: list[str] = []
+            logger = logging.getLogger("test-allow-self-reply")
+
+            did_process = process_comment(
+                comment=Comment("hello wise old man", Author("wise-old-man-bot")),
+                quotes=["Hello, [player name]."],
+                replied_store_path=store_path,
+                blocked_users=set(),
+                bot_username="wise-old-man-bot",
+                allow_self_reply=True,
+                reply=replies.append,
+                dry_run=True,
+                logger=logger,
+            )
+
+            self.assertTrue(did_process)
+            self.assertEqual(replies, [])
+
 
 if __name__ == "__main__":
     unittest.main()
-

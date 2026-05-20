@@ -1,0 +1,16 @@
+[Unit]
+Description=Wise Old Man Reddit Reply Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=redditbot
+WorkingDirectory=/opt/reddit_reply_bot
+ExecStart=/home/redditbot/miniconda3/bin/conda run --no-capture-output -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+
