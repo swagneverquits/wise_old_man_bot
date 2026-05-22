@@ -38,8 +38,8 @@ class ConfigTests(unittest.TestCase):
             config = load_config(load_default_dotenv=False)
 
         self.assertEqual(config.subreddits, "test")
-        self.assertEqual(config.quotes_path, Path("quotes.json"))
-        self.assertEqual(config.blocked_users_path, Path("blocked_users.json"))
+        self.assertEqual(config.quotes_path, Path("config/quotes.json"))
+        self.assertEqual(config.blocked_users_path, Path("config/blocked_users.json"))
         self.assertEqual(config.replied_items_path, Path("data/replied_items.json"))
         self.assertTrue(config.dry_run)
         self.assertFalse(config.allow_self_reply)
@@ -52,8 +52,8 @@ class ConfigTests(unittest.TestCase):
             "REDDIT_PASSWORD": "password",
             "REDDIT_USER_AGENT": "test-agent",
             "REDDIT_SUBREDDITS": "2007scape+test",
-            "QUOTES_PATH": "data/quotes.json",
-            "BLOCKED_USERS_PATH": "data/blocked_users.json",
+            "QUOTES_PATH": "custom/quotes.json",
+            "BLOCKED_USERS_PATH": "custom/blocked_users.json",
             "REPLIED_ITEMS_PATH": "data/replied_items.json",
             "DRY_RUN": "false",
             "ALLOW_SELF_REPLY": "true",
@@ -63,8 +63,8 @@ class ConfigTests(unittest.TestCase):
             config = load_config(load_default_dotenv=False)
 
         self.assertEqual(config.subreddits, "2007scape+test")
-        self.assertEqual(config.quotes_path, Path("data/quotes.json"))
-        self.assertEqual(config.blocked_users_path, Path("data/blocked_users.json"))
+        self.assertEqual(config.quotes_path, Path("custom/quotes.json"))
+        self.assertEqual(config.blocked_users_path, Path("custom/blocked_users.json"))
         self.assertEqual(config.replied_items_path, Path("data/replied_items.json"))
         self.assertFalse(config.dry_run)
         self.assertTrue(config.allow_self_reply)

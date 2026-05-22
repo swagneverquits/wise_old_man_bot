@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY reddit_reply_bot ./reddit_reply_bot
-COPY quotes.json blocked_users.json ./
+COPY config ./config
 
 RUN mkdir -p /app/data
 

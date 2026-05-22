@@ -30,8 +30,8 @@ Copy-Item .env.example .env
 
 The bot reads these files by default:
 
-- `quotes.json`
-- `blocked_users.json`
+- `config/quotes.json`
+- `config/blocked_users.json`
 - `data/replied_items.json`
 
 Keep `.env` local. It is ignored by Git.
@@ -81,7 +81,7 @@ Run continuously with 5-minute polling:
 conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
 ```
 
-Deployment notes and a sample `systemd` service are in `DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
+Deployment notes and a sample `systemd` service are in `docs/DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
 
 ## Docker
 

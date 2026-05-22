@@ -54,8 +54,8 @@ It just calls `runner.main()`.
 This wires the application together. It:
 
 - Loads config from `.env`
-- Loads `quotes.json`
-- Loads `blocked_users.json`
+- Loads `config/quotes.json`
+- Loads `config/blocked_users.json`
 - Creates the PRAW Reddit client
 - Fetches recent comments and submissions
 - Sends each item to `bot.py`
@@ -146,8 +146,8 @@ Important settings:
 
 This loads and validates:
 
-- `quotes.json`
-- `blocked_users.json`
+- `config/quotes.json`
+- `config/blocked_users.json`
 
 It makes sure the files contain JSON lists of strings.
 
@@ -228,7 +228,7 @@ reddit_reply_bot/matcher.py
 To add or edit replies, edit:
 
 ```text
-quotes.json
+config/quotes.json
 ```
 
 To change skip behavior, edit:
