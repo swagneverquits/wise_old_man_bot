@@ -6,3 +6,4 @@ __pycache__/
 *.iml
 replied_items.json
 data/replied_items.json
+docs/
