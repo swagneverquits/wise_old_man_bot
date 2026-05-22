@@ -19,7 +19,33 @@ The intended continuous command is:
 conda run --no-capture-output -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
 ```
 
-That polls every 5 minutes, checks recent comments and submissions, skips duplicates using `replied_items.json`, and keeps running until stopped.
+That polls every 5 minutes, checks recent comments and submissions, skips duplicates using `data/replied_items.json`, and keeps running until stopped.
+
+## Docker Deployment
+
+Docker is the preferred server deployment path because the server does not need Conda.
+
+On Windows, install Docker Desktop first, then reopen PowerShell so `docker` is available on `PATH`.
+
+Build and start:
+
+```bash
+docker compose up -d --build
+```
+
+Follow logs:
+
+```bash
+docker compose logs -f
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+The Compose file mounts `./data` into `/app/data`, so `data/replied_items.json` persists across container restarts and rebuilds.
 
 ## Server Setup
 
@@ -132,7 +158,6 @@ sudo systemctl restart reddit-reply-bot
 Do not commit these:
 
 - `.env`
-- `replied_items.json`
+- `data/replied_items.json`
 
-The `.env` file contains Reddit credentials. The `replied_items.json` file is local runtime state that prevents duplicate replies across restarts.
-
+The `.env` file contains Reddit credentials. The `data/replied_items.json` file is local runtime state that prevents duplicate replies across restarts.

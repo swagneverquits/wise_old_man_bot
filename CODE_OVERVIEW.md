@@ -123,7 +123,7 @@ with the Reddit author's username.
 This loads and saves replied item IDs. The local runtime file is:
 
 ```text
-replied_items.json
+data/replied_items.json
 ```
 
 That file is ignored by Git because it is local runtime state.
@@ -180,7 +180,17 @@ Live mode:
 DRY_RUN=false
 ```
 
-In live mode, the bot replies on Reddit and writes the item ID to `replied_items.json`.
+In live mode, the bot replies on Reddit and writes the item ID to `data/replied_items.json`.
+
+## Docker
+
+Docker packages the bot and Python dependencies into an image. `docker-compose.yml` runs the bot continuously and mounts `./data` into the container so reply history survives rebuilds.
+
+The container command is:
+
+```bash
+python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
+```
 
 ## Tests
 

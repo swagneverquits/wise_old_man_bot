@@ -32,7 +32,7 @@ The bot reads these files by default:
 
 - `quotes.json`
 - `blocked_users.json`
-- `replied_items.json`
+- `data/replied_items.json`
 
 Keep `.env` local. It is ignored by Git.
 
@@ -56,7 +56,7 @@ The bot code includes small reliability helpers for:
 
 ## Dry Run
 
-Keep `DRY_RUN=true` in `.env` while validating the bot. In dry-run mode, matched comments and submissions log the intended reply but do not call Reddit and do not write the item ID to `replied_items.json`.
+Keep `DRY_RUN=true` in `.env` while validating the bot. In dry-run mode, matched comments and submissions log the intended reply but do not call Reddit and do not write the item ID to `data/replied_items.json`.
 
 Switch `DRY_RUN=false` only after confirming the logs show the replies you expect.
 
@@ -82,3 +82,25 @@ conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-secon
 ```
 
 Deployment notes and a sample `systemd` service are in `DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
+
+## Docker
+
+Build and run the bot with Docker Compose:
+
+```powershell
+docker compose up -d --build
+```
+
+Follow logs:
+
+```powershell
+docker compose logs -f
+```
+
+Stop the bot:
+
+```powershell
+docker compose down
+```
+
+The `data/` folder is mounted into the container so `data/replied_items.json` persists across container rebuilds.

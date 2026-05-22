@@ -40,7 +40,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.subreddits, "test")
         self.assertEqual(config.quotes_path, Path("quotes.json"))
         self.assertEqual(config.blocked_users_path, Path("blocked_users.json"))
-        self.assertEqual(config.replied_items_path, Path("replied_items.json"))
+        self.assertEqual(config.replied_items_path, Path("data/replied_items.json"))
         self.assertTrue(config.dry_run)
         self.assertFalse(config.allow_self_reply)
 

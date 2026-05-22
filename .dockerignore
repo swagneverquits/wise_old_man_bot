@@ -1,8 +1,12 @@
+.git
+.env
+.idea
+*.iml
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.env
-.idea/
-*.iml
-replied_items.json
 data/replied_items.json
+replied_items.json
+tests/
+plans/
+*.md
