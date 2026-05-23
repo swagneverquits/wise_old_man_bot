@@ -13,4 +13,4 @@ COPY config ./config
 
 RUN mkdir -p /app/data
 
-CMD ["python", "-m", "reddit_reply_bot", "--loop", "--interval-seconds", "300", "--limit", "50"]
+CMD ["python", "-m", "reddit_reply_bot", "--loop", "--interval-seconds", "120", "--limit", "200", "--startup-limit", "1000"]

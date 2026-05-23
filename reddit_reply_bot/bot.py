@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import random
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,17 @@ from reddit_reply_bot.runtime import Cooldown, extract_item_metadata, log_reply_
 from reddit_reply_bot.storage import load_replied_ids, mark_replied
 
 TextExtractor = Callable[[Any], str | None]
+
+
+@dataclass(frozen=True)
+class ProcessResult:
+    kind: str
+    item_id: str
+    result: str
+
+    @property
+    def did_reply(self) -> bool:
+        return self.result in {"posted", "would_reply"}
 
 
 def process_comment(
@@ -29,7 +41,7 @@ def process_comment(
     logger: logging.Logger,
     cooldown: Cooldown | None = None,
     chooser: random.Random | None = None,
-) -> bool:
+) -> ProcessResult:
     """Process one Reddit comment."""
     return _process_item(
         item=comment,
@@ -61,7 +73,7 @@ def process_submission(
     logger: logging.Logger,
     cooldown: Cooldown | None = None,
     chooser: random.Random | None = None,
-) -> bool:
+) -> ProcessResult:
     """Process one Reddit submission."""
     title = getattr(submission, "title", None) or ""
     selftext = getattr(submission, "selftext", None) or ""
@@ -99,12 +111,11 @@ def _process_item(
     logger: logging.Logger,
     cooldown: Cooldown | None = None,
     chooser: random.Random | None = None,
-) -> bool:
+) -> ProcessResult:
     metadata = extract_item_metadata(item, kind)
 
     if not is_match(text):
-        log_reply_event(logger, "reply_skip", metadata, "no_match")
-        return False
+        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="no_match")
 
     replied_ids = load_replied_ids(replied_store_path)
     if not should_reply(
@@ -115,11 +126,11 @@ def _process_item(
         None if allow_self_reply else bot_username,
     ):
         log_reply_event(logger, "reply_skip", metadata, "decision_skip")
-        return False
+        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="decision_skip")
 
     if cooldown is not None and not cooldown.ready():
         log_reply_event(logger, "reply_skip", metadata, "cooldown")
-        return False
+        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="cooldown")
 
     quote = choose_quote(quotes, metadata.username, chooser)
 
@@ -133,7 +144,7 @@ def _process_item(
             quote,
         )
         log_reply_event(logger, "reply_dry_run", metadata, "would_reply")
-        return True
+        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="would_reply")
 
     reply(quote)
     mark_replied(replied_store_path, metadata.item_id)
@@ -142,4 +153,4 @@ def _process_item(
         cooldown.mark()
 
     log_reply_event(logger, "reply_posted", metadata, "posted")
-    return True
+    return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="posted")

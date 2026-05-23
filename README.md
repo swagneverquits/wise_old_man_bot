@@ -78,8 +78,10 @@ conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 Run continuously with 5-minute polling:
 
 ```powershell
-conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 300 --limit 50
+conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000
 ```
+
+Loop mode does one larger startup scan, then settles into normal polling. The default startup scan checks 1000 comments and 1000 submissions; each normal poll checks 200 comments and 200 submissions.
 
 Deployment notes and a sample `systemd` service are in `docs/DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
 

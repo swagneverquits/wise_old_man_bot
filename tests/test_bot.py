@@ -46,7 +46,7 @@ class BotProcessingTests(unittest.TestCase):
             logger = logging.getLogger("test-dry-run-comment")
 
             with self.assertLogs(logger, level="INFO") as captured:
-                did_process = process_comment(
+                result = process_comment(
                     comment=Comment("hello wise old man", Author("Player")),
                     quotes=["Hello, [player name]."],
                     replied_store_path=store_path,
@@ -59,7 +59,8 @@ class BotProcessingTests(unittest.TestCase):
                     chooser=random.Random(1),
                 )
 
-            self.assertTrue(did_process)
+            self.assertTrue(result.did_reply)
+            self.assertEqual(result.result, "would_reply")
             self.assertEqual(replies, [])
             self.assertEqual(load_replied_ids(store_path), set())
             self.assertIn("dry_run_reply", "\n".join(captured.output))
@@ -70,7 +71,7 @@ class BotProcessingTests(unittest.TestCase):
             replies: list[str] = []
             logger = logging.getLogger("test-live-comment")
 
-            did_process = process_comment(
+            result = process_comment(
                 comment=Comment("hello wiseoldman", Author("Player")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
@@ -83,7 +84,8 @@ class BotProcessingTests(unittest.TestCase):
                 chooser=random.Random(1),
             )
 
-            self.assertTrue(did_process)
+            self.assertTrue(result.did_reply)
+            self.assertEqual(result.result, "posted")
             self.assertEqual(replies, ["Hello, Player."])
             self.assertEqual(load_replied_ids(store_path), {"comment123"})
 
@@ -92,7 +94,7 @@ class BotProcessingTests(unittest.TestCase):
             store_path = Path(directory) / "replied_items.json"
             logger = logging.getLogger("test-dry-run-submission")
 
-            did_process = process_submission(
+            result = process_submission(
                 submission=Submission("Wise Old Man question", Author("Player")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
@@ -105,14 +107,15 @@ class BotProcessingTests(unittest.TestCase):
                 chooser=random.Random(1),
             )
 
-            self.assertTrue(did_process)
+            self.assertTrue(result.did_reply)
+            self.assertEqual(result.result, "would_reply")
 
     def test_submission_body_can_trigger_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store_path = Path(directory) / "replied_items.json"
             logger = logging.getLogger("test-dry-run-submission-body")
 
-            did_process = process_submission(
+            result = process_submission(
                 submission=Submission(
                     "A normal title",
                     Author("Player"),
@@ -129,7 +132,8 @@ class BotProcessingTests(unittest.TestCase):
                 chooser=random.Random(1),
             )
 
-            self.assertTrue(did_process)
+            self.assertTrue(result.did_reply)
+            self.assertEqual(result.result, "would_reply")
 
     def test_non_matching_comment_is_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -137,7 +141,7 @@ class BotProcessingTests(unittest.TestCase):
             replies: list[str] = []
             logger = logging.getLogger("test-no-match")
 
-            did_process = process_comment(
+            result = process_comment(
                 comment=Comment("hello there", Author("Player")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
@@ -149,7 +153,8 @@ class BotProcessingTests(unittest.TestCase):
                 logger=logger,
             )
 
-            self.assertFalse(did_process)
+            self.assertFalse(result.did_reply)
+            self.assertEqual(result.result, "no_match")
             self.assertEqual(replies, [])
             self.assertEqual(load_replied_ids(store_path), set())
 
@@ -161,7 +166,7 @@ class BotProcessingTests(unittest.TestCase):
             cooldown = Cooldown(seconds=10, clock=lambda: 100)
             cooldown.mark()
 
-            did_process = process_comment(
+            result = process_comment(
                 comment=Comment("hello wise old man", Author("Player")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
@@ -174,7 +179,8 @@ class BotProcessingTests(unittest.TestCase):
                 cooldown=cooldown,
             )
 
-            self.assertFalse(did_process)
+            self.assertFalse(result.did_reply)
+            self.assertEqual(result.result, "cooldown")
             self.assertEqual(replies, [])
 
     def test_can_allow_self_reply_for_testing(self) -> None:
@@ -183,7 +189,7 @@ class BotProcessingTests(unittest.TestCase):
             replies: list[str] = []
             logger = logging.getLogger("test-allow-self-reply")
 
-            did_process = process_comment(
+            result = process_comment(
                 comment=Comment("hello wise old man", Author("wise-old-man-bot")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
@@ -195,7 +201,8 @@ class BotProcessingTests(unittest.TestCase):
                 logger=logger,
             )
 
-            self.assertTrue(did_process)
+            self.assertTrue(result.did_reply)
+            self.assertEqual(result.result, "would_reply")
             self.assertEqual(replies, [])
 
 

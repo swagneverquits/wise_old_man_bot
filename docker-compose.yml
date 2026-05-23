@@ -12,6 +12,8 @@ services:
       - reddit_reply_bot
       - --loop
       - --interval-seconds
-      - "300"
+      - "120"
       - --limit
-      - "50"
+      - "200"
+      - --startup-limit
+      - "1000"
