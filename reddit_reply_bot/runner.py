@@ -24,7 +24,19 @@ LOGGER = logging.getLogger("reddit_reply_bot")
 class PollSummary:
     comments_checked: int
     submissions_checked: int
+    comments_new: int
+    submissions_new: int
     results: Counter[str]
+
+
+@dataclass
+class SeenItems:
+    comment_ids: set[str]
+    submission_ids: set[str]
+
+    @classmethod
+    def empty(cls) -> "SeenItems":
+        return cls(comment_ids=set(), submission_ids=set())
 
 
 def main() -> None:
@@ -43,6 +55,7 @@ def main() -> None:
     reddit = create_reddit_client(config.reddit)
     subreddit = reddit.subreddit(config.subreddits)
     cooldown = Cooldown(args.cooldown_seconds)
+    seen_items = SeenItems.empty() if args.loop else None
 
     LOGGER.info(
         "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s",
@@ -66,6 +79,7 @@ def main() -> None:
             dry_run=config.dry_run,
             cooldown=cooldown,
             logger=LOGGER,
+            seen_items=seen_items,
         )
 
     if args.loop:
@@ -142,14 +156,18 @@ def poll_subreddit(
     dry_run: bool,
     cooldown: Cooldown,
     logger: logging.Logger,
+    seen_items: SeenItems | None = None,
 ) -> PollSummary:
     """Poll recent subreddit comments and submissions once."""
     comments_checked = 0
     submissions_checked = 0
+    current_comment_ids: set[str] = set()
+    current_submission_ids: set[str] = set()
     results: Counter[str] = Counter()
 
     for comment in subreddit.comments(limit=limit):
         comments_checked += 1
+        current_comment_ids.add(str(getattr(comment, "id")))
         result = process_comment(
             comment=comment,
             quotes=quotes,
@@ -166,6 +184,7 @@ def poll_subreddit(
 
     for submission in subreddit.new(limit=limit):
         submissions_checked += 1
+        current_submission_ids.add(str(getattr(submission, "id")))
         result = process_submission(
             submission=submission,
             quotes=quotes,
@@ -180,15 +199,28 @@ def poll_subreddit(
         )
         results[result.result] += 1
 
+    if seen_items is None:
+        comments_new = comments_checked
+        submissions_new = submissions_checked
+    else:
+        comments_new = len(current_comment_ids - seen_items.comment_ids)
+        submissions_new = len(current_submission_ids - seen_items.submission_ids)
+        seen_items.comment_ids = current_comment_ids
+        seen_items.submission_ids = current_submission_ids
+
     summary = PollSummary(
         comments_checked=comments_checked,
         submissions_checked=submissions_checked,
+        comments_new=comments_new,
+        submissions_new=submissions_new,
         results=results,
     )
     logger.info(
-        "poll_summary comments=%s submissions=%s posted=%s dry_run=%s skipped=%s no_match=%s cooldown=%s",
+        "poll_summary comments=%s new_comments=%s submissions=%s new_submissions=%s posted=%s dry_run=%s skipped=%s no_match=%s cooldown=%s",
         summary.comments_checked,
+        summary.comments_new,
         summary.submissions_checked,
+        summary.submissions_new,
         summary.results["posted"],
         summary.results["would_reply"],
         summary.results["decision_skip"],

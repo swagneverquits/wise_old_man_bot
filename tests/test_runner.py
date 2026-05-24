@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reddit_reply_bot.runner import poll_subreddit, run_loop
+from reddit_reply_bot.runner import SeenItems, poll_subreddit, run_loop
 from reddit_reply_bot.runtime import Cooldown
 from reddit_reply_bot.storage import load_replied_ids
 
@@ -77,6 +77,8 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(load_replied_ids(store_path), {"comment123", "submission123"})
             self.assertEqual(summary.comments_checked, 1)
             self.assertEqual(summary.submissions_checked, 1)
+            self.assertEqual(summary.comments_new, 1)
+            self.assertEqual(summary.submissions_new, 1)
             self.assertEqual(summary.results["posted"], 2)
 
     def test_poll_subreddit_summarizes_no_matches_without_replying(self) -> None:
@@ -104,7 +106,48 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(submission.replies, [])
             self.assertEqual(summary.comments_checked, 1)
             self.assertEqual(summary.submissions_checked, 1)
+            self.assertEqual(summary.comments_new, 1)
+            self.assertEqual(summary.submissions_new, 1)
             self.assertEqual(summary.results["no_match"], 2)
+
+    def test_poll_subreddit_tracks_new_items_across_polls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            comment = Comment()
+            submission = Submission()
+            store_path = Path(directory) / "replied_items.json"
+            seen_items = SeenItems.empty()
+
+            first_summary = poll_subreddit(
+                subreddit=Subreddit([comment], [submission]),
+                limit=200,
+                quotes=["Hello, [player name]."],
+                replied_store_path=store_path,
+                blocked_users=set(),
+                bot_username="wise-old-man-bot",
+                allow_self_reply=False,
+                dry_run=True,
+                cooldown=Cooldown(seconds=0),
+                logger=logging.getLogger("test-runner-new-items-first"),
+                seen_items=seen_items,
+            )
+            second_summary = poll_subreddit(
+                subreddit=Subreddit([comment], [submission]),
+                limit=200,
+                quotes=["Hello, [player name]."],
+                replied_store_path=store_path,
+                blocked_users=set(),
+                bot_username="wise-old-man-bot",
+                allow_self_reply=False,
+                dry_run=True,
+                cooldown=Cooldown(seconds=0),
+                logger=logging.getLogger("test-runner-new-items-second"),
+                seen_items=seen_items,
+            )
+
+            self.assertEqual(first_summary.comments_new, 1)
+            self.assertEqual(first_summary.submissions_new, 1)
+            self.assertEqual(second_summary.comments_new, 0)
+            self.assertEqual(second_summary.submissions_new, 0)
 
     def test_loop_stops_on_keyboard_interrupt(self) -> None:
         calls = 0
