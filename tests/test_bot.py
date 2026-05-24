@@ -183,6 +183,30 @@ class BotProcessingTests(unittest.TestCase):
             self.assertEqual(result.result, "cooldown")
             self.assertEqual(replies, [])
 
+    def test_already_replied_match_is_quietly_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+            store_path.write_text('["comment123"]', encoding="utf-8")
+            replies: list[str] = []
+            logger = logging.getLogger("test-already-replied")
+
+            with self.assertNoLogs(logger, level="INFO"):
+                result = process_comment(
+                    comment=Comment("hello wise old man", Author("Player")),
+                    quotes=["Hello, [player name]."],
+                    replied_store_path=store_path,
+                    blocked_users=set(),
+                    bot_username="wise-old-man-bot",
+                    allow_self_reply=False,
+                    reply=replies.append,
+                    dry_run=False,
+                    logger=logger,
+                )
+
+            self.assertFalse(result.did_reply)
+            self.assertEqual(result.result, "already_replied")
+            self.assertEqual(replies, [])
+
     def test_can_allow_self_reply_for_testing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store_path = Path(directory) / "replied_items.json"

@@ -2,7 +2,12 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from reddit_reply_bot.reply_flow import normalize_username, reply_to_matched_item, should_reply
+from reddit_reply_bot.reply_flow import (
+    normalize_username,
+    reply_to_matched_item,
+    should_reply,
+    skip_reason,
+)
 from reddit_reply_bot.storage import load_replied_ids
 
 
@@ -12,13 +17,19 @@ class ReplyFlowTests(unittest.TestCase):
 
     def test_skips_already_replied_item(self) -> None:
         self.assertFalse(should_reply("abc123", "Player", {"abc123"}, set()))
+        self.assertEqual(skip_reason("abc123", "Player", {"abc123"}, set()), "already_replied")
 
     def test_skips_blocked_user_case_insensitively(self) -> None:
         self.assertFalse(should_reply("abc123", "Player", set(), {"player"}))
+        self.assertEqual(skip_reason("abc123", "Player", set(), {"player"}), "blocked_user")
 
     def test_skips_bot_username(self) -> None:
         self.assertFalse(
             should_reply("abc123", "wise-old-man-bot", set(), set(), "Wise-Old-Man-Bot")
+        )
+        self.assertEqual(
+            skip_reason("abc123", "wise-old-man-bot", set(), set(), "Wise-Old-Man-Bot"),
+            "self_reply",
         )
 
     def test_normalizes_deleted_author(self) -> None:

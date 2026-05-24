@@ -11,7 +11,7 @@ from typing import Any
 
 from reddit_reply_bot.matcher import comment_matches, submission_matches
 from reddit_reply_bot.quotes import choose_quote
-from reddit_reply_bot.reply_flow import ReplyFunction, should_reply
+from reddit_reply_bot.reply_flow import ReplyFunction, skip_reason
 from reddit_reply_bot.runtime import Cooldown, extract_item_metadata, log_reply_event
 from reddit_reply_bot.storage import load_replied_ids, mark_replied
 
@@ -118,15 +118,17 @@ def _process_item(
         return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="no_match")
 
     replied_ids = load_replied_ids(replied_store_path)
-    if not should_reply(
+    reason = skip_reason(
         metadata.item_id,
         metadata.username,
         replied_ids,
         blocked_users,
         None if allow_self_reply else bot_username,
-    ):
-        log_reply_event(logger, "reply_skip", metadata, "decision_skip")
-        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="decision_skip")
+    )
+    if reason is not None:
+        if reason != "already_replied":
+            log_reply_event(logger, "reply_skip", metadata, reason)
+        return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result=reason)
 
     if cooldown is not None and not cooldown.ready():
         log_reply_event(logger, "reply_skip", metadata, "cooldown")

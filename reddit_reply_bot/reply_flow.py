@@ -20,20 +20,31 @@ def should_reply(
     bot_username: str | None = None,
 ) -> bool:
     """Return whether the bot should reply to a matched Reddit item."""
+    return skip_reason(item_id, username, replied_ids, blocked_users, bot_username) is None
+
+
+def skip_reason(
+    item_id: str,
+    username: str | None,
+    replied_ids: set[str],
+    blocked_users: set[str],
+    bot_username: str | None = None,
+) -> str | None:
+    """Return the reason a matched item should be skipped, or None if allowed."""
     normalized_username = normalize_username(username)
     normalized_blocked_users = {normalize_username(user) for user in blocked_users}
     normalized_bot_username = normalize_username(bot_username)
 
     if item_id in replied_ids:
-        return False
+        return "already_replied"
 
     if normalized_username in normalized_blocked_users:
-        return False
+        return "blocked_user"
 
     if normalized_bot_username and normalized_username == normalized_bot_username:
-        return False
+        return "self_reply"
 
-    return True
+    return None
 
 
 def normalize_username(username: str | None) -> str:

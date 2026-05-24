@@ -221,7 +221,7 @@ def poll_subreddit(
         summary.submissions_new,
         summary.results["posted"],
         summary.results["would_reply"],
-        summary.results["decision_skip"],
+        summary.results["blocked_user"] + summary.results["self_reply"],
         summary.results["no_match"],
         summary.results["cooldown"],
     )
