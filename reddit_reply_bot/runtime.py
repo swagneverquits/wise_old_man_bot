@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from collections.abc import Callable
@@ -83,23 +82,18 @@ def log_reply_event(
     metadata: RedditItemMetadata,
     result: str,
 ) -> None:
-    """Log reply flow events as JSON for easier later inspection."""
+    """Log reply flow events in a readable key/value format."""
     logger.info(
-        json.dumps(
-            {
-                "event": event,
-                "item_id": metadata.item_id,
-                "kind": metadata.kind,
-                "subreddit": metadata.subreddit,
-                "username": metadata.username,
-                "result": result,
-            },
-            sort_keys=True,
-        )
+        "%s result=%s kind=%s item_id=%s subreddit=%s username=%s",
+        event,
+        result,
+        metadata.kind,
+        metadata.item_id,
+        metadata.subreddit,
+        metadata.username,
     )
 
 
 def configure_logging(level: int = logging.INFO) -> None:
     """Configure basic application logging."""
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
-

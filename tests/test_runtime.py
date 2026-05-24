@@ -1,4 +1,3 @@
-import json
 import logging
 import unittest
 
@@ -92,7 +91,7 @@ class RuntimeTests(unittest.TestCase):
                 sleep=lambda _: None,
             )
 
-    def test_logs_reply_event_as_json(self) -> None:
+    def test_logs_reply_event_in_readable_format(self) -> None:
         logger = logging.getLogger("test-runtime-log")
         metadata = RedditItemMetadata(
             item_id="abc123",
@@ -104,11 +103,12 @@ class RuntimeTests(unittest.TestCase):
         with self.assertLogs(logger, level="INFO") as captured:
             log_reply_event(logger, "reply_attempt", metadata, "posted")
 
-        event = json.loads(captured.records[0].getMessage())
+        message = captured.records[0].getMessage()
 
-        self.assertEqual(event["event"], "reply_attempt")
-        self.assertEqual(event["item_id"], "abc123")
-        self.assertEqual(event["result"], "posted")
+        self.assertEqual(
+            message,
+            "reply_attempt result=posted kind=comment item_id=abc123 subreddit=test username=Player",
+        )
 
 
 if __name__ == "__main__":
