@@ -216,10 +216,8 @@ def poll_subreddit(
         results=results,
     )
     logger.info(
-        "poll_summary comments=%s new_comments=%s submissions=%s new_submissions=%s posted=%s dry_run=%s skipped=%s no_match=%s cooldown=%s",
-        summary.comments_checked,
+        "poll_summary new_comments=%s new_submissions=%s posted=%s dry_run=%s skipped=%s no_match=%s cooldown=%s",
         summary.comments_new,
-        summary.submissions_checked,
         summary.submissions_new,
         summary.results["posted"],
         summary.results["would_reply"],
