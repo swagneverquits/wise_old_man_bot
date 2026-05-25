@@ -11,9 +11,8 @@ class WiseOldManMatcherTests(unittest.TestCase):
     def test_matches_keyword_variants(self) -> None:
         examples = [
             "wise old man",
-            "wise oldman",
-            "wiseold man",
-            "wiseoldman",
+            "wise  old  man",
+            "wise\told\tman",
         ]
 
         for example in examples:
@@ -36,6 +35,10 @@ class WiseOldManMatcherTests(unittest.TestCase):
             "wise young man",
             "the wisest old mansion",
             "otherwise old manager",
+            "wiseoldman",
+            "WiseOldMan",
+            "wise oldman",
+            "wiseold man",
             None,
         ]
 
@@ -46,4 +49,3 @@ class WiseOldManMatcherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

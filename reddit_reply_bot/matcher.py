@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-WISE_OLD_MAN_PATTERN = re.compile(r"\bwise\s*old\s*man\b", re.IGNORECASE)
+WISE_OLD_MAN_PATTERN = re.compile(r"\bwise\s+old\s+man\b", re.IGNORECASE)
 
 
 def contains_wise_old_man(text: str | None) -> bool:
@@ -23,4 +23,3 @@ def comment_matches(comment_body: str | None) -> bool:
 def submission_matches(title: str | None) -> bool:
     """Return whether a Reddit submission title should trigger the bot."""
     return contains_wise_old_man(title)
-

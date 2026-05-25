@@ -72,7 +72,7 @@ class BotProcessingTests(unittest.TestCase):
             logger = logging.getLogger("test-live-comment")
 
             result = process_comment(
-                comment=Comment("hello wiseoldman", Author("Player")),
+                comment=Comment("hello wise old man", Author("Player")),
                 quotes=["Hello, [player name]."],
                 replied_store_path=store_path,
                 blocked_users=set(),
