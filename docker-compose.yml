@@ -19,3 +19,7 @@ services:
       - "1000"
       - --summary-interval-seconds
       - "600"
+      - --moderation-interval-seconds
+      - "3600"
+      - --low-karma-threshold
+      - "-5"

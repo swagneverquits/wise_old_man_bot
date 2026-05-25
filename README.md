@@ -78,10 +78,12 @@ conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 Run continuously with 2-minute polling and 10-minute summary logs:
 
 ```powershell
-conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600
+conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600 --moderation-interval-seconds 3600 --low-karma-threshold -5
 ```
 
 Loop mode does one larger startup scan, then settles into normal polling. The default startup scan checks 1000 comments and 1000 submissions; each normal poll checks 200 comments and 200 submissions. Routine poll summaries are rolled up every 10 minutes so interesting reply events stay visible without printing a summary every poll.
+
+In live mode, the bot also checks its recorded replies once per hour. If a bot reply drops below the configured low-karma threshold, it deletes that reply and keeps the parent item snapshot in `data/reply_audit.json` for review.
 
 Deployment notes and a sample `systemd` service are in `docs/DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
 

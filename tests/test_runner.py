@@ -228,6 +228,46 @@ class RunnerTests(unittest.TestCase):
             messages,
         )
 
+    def test_loop_runs_moderation_on_separate_interval(self) -> None:
+        sleeps = 0
+        now = 0.0
+        moderation_calls = 0
+
+        def poll_once(_: int) -> PollSummary:
+            return PollSummary(
+                comments_checked=0,
+                submissions_checked=0,
+                comments_new=0,
+                submissions_new=0,
+                results=Counter(),
+            )
+
+        def moderation_check() -> None:
+            nonlocal moderation_calls
+            moderation_calls += 1
+
+        def sleep(seconds: float) -> None:
+            nonlocal now, sleeps
+            sleeps += 1
+            now += seconds
+            if sleeps == 5:
+                raise KeyboardInterrupt
+
+        run_loop(
+            poll_once,
+            interval_seconds=120,
+            summary_interval_seconds=600,
+            moderation_interval_seconds=360,
+            moderation_check=moderation_check,
+            logger=logging.getLogger("test-runner-moderation"),
+            normal_limit=200,
+            startup_limit=1000,
+            sleep=sleep,
+            clock=lambda: now,
+        )
+
+        self.assertEqual(moderation_calls, 1)
+
     def test_loop_rejects_non_positive_interval(self) -> None:
         with self.assertRaises(ValueError):
             run_loop(
@@ -252,6 +292,16 @@ class RunnerTests(unittest.TestCase):
                 lambda _: PollSummary(0, 0, 0, 0, Counter()),
                 interval_seconds=120,
                 summary_interval_seconds=0,
+                logger=logging.getLogger("test-runner-loop"),
+                sleep=lambda _: None,
+            )
+
+    def test_loop_rejects_non_positive_moderation_interval(self) -> None:
+        with self.assertRaises(ValueError):
+            run_loop(
+                lambda _: PollSummary(0, 0, 0, 0, Counter()),
+                interval_seconds=120,
+                moderation_interval_seconds=0,
                 logger=logging.getLogger("test-runner-loop"),
                 sleep=lambda _: None,
             )

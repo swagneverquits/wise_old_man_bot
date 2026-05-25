@@ -2,7 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from reddit_reply_bot.storage import load_replied_ids, mark_replied, save_replied_ids
+from reddit_reply_bot.storage import (
+    add_reply_record,
+    load_replied_ids,
+    load_reply_records,
+    mark_replied,
+    reply_audit_path,
+    save_replied_ids,
+)
 
 
 class StorageTests(unittest.TestCase):
@@ -29,7 +36,22 @@ class StorageTests(unittest.TestCase):
             self.assertEqual(updated_ids, {"abc123"})
             self.assertEqual(load_replied_ids(path), {"abc123"})
 
+    def test_reply_audit_path_is_colocated_with_replied_items(self) -> None:
+        path = Path("data/replied_items.json")
+
+        self.assertEqual(reply_audit_path(path), Path("data/reply_audit.json"))
+
+    def test_add_reply_record_persists_audit_record(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "reply_audit.json"
+
+            add_reply_record(path, {"bot_reply_id": "reply123", "status": "active"})
+
+            self.assertEqual(
+                load_reply_records(path),
+                [{"bot_reply_id": "reply123", "status": "active"}],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
-

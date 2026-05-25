@@ -14,8 +14,10 @@ from prawcore.exceptions import PrawcoreException
 from reddit_reply_bot.bot import process_comment, process_submission
 from reddit_reply_bot.config import load_config
 from reddit_reply_bot.data_files import load_blocked_users, load_quotes
+from reddit_reply_bot.moderation import delete_low_karma_replies
 from reddit_reply_bot.reddit_client import create_reddit_client
 from reddit_reply_bot.runtime import Cooldown, configure_logging, retry_with_backoff
+from reddit_reply_bot.storage import reply_audit_path
 
 LOGGER = logging.getLogger("reddit_reply_bot")
 
@@ -65,6 +67,8 @@ def main() -> None:
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--interval-seconds", type=float, default=120)
     parser.add_argument("--summary-interval-seconds", type=float, default=600)
+    parser.add_argument("--moderation-interval-seconds", type=float, default=3600)
+    parser.add_argument("--low-karma-threshold", type=int, default=-5)
     args = parser.parse_args()
 
     configure_logging()
@@ -77,7 +81,7 @@ def main() -> None:
     seen_items = SeenItems.empty() if args.loop else None
 
     LOGGER.info(
-        "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s summary_interval_seconds=%s",
+        "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s summary_interval_seconds=%s moderation_interval_seconds=%s low_karma_threshold=%s",
         config.subreddits,
         config.dry_run,
         config.allow_self_reply,
@@ -85,6 +89,8 @@ def main() -> None:
         args.loop,
         args.interval_seconds,
         args.summary_interval_seconds,
+        args.moderation_interval_seconds,
+        args.low_karma_threshold,
     )
 
     def poll_once(limit: int = args.limit) -> PollSummary:
@@ -102,6 +108,25 @@ def main() -> None:
             seen_items=seen_items,
         )
 
+    def moderation_check() -> None:
+        if config.dry_run:
+            return
+
+        delete_low_karma_replies(
+            reddit=reddit,
+            reply_records_path=reply_audit_path(config.replied_items_path),
+            karma_threshold=args.low_karma_threshold,
+            logger=LOGGER,
+        )
+
+    if not args.loop and not config.dry_run:
+        def poll_once_with_moderation(limit: int = args.limit) -> PollSummary:
+            summary = poll_once(limit)
+            run_moderation_with_retry(moderation_check)
+            return summary
+    else:
+        poll_once_with_moderation = poll_once
+
     if args.loop:
         run_loop(
             poll_once,
@@ -110,10 +135,12 @@ def main() -> None:
             normal_limit=args.limit,
             startup_limit=args.startup_limit,
             summary_interval_seconds=args.summary_interval_seconds,
+            moderation_check=moderation_check,
+            moderation_interval_seconds=args.moderation_interval_seconds,
         )
         return
 
-    summary = run_poll_with_retry(lambda: poll_once(args.limit))
+    summary = run_poll_with_retry(lambda: poll_once_with_moderation(args.limit))
     log_poll_summary(LOGGER, "poll_summary", summary)
 
 
@@ -143,6 +170,8 @@ def run_loop(
     normal_limit: int = 200,
     startup_limit: int = 1000,
     summary_interval_seconds: float = 600,
+    moderation_check: Callable[[], None] | None = None,
+    moderation_interval_seconds: float = 3600,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> None:
@@ -151,17 +180,27 @@ def run_loop(
         raise ValueError("interval_seconds must be greater than 0")
     if summary_interval_seconds <= 0:
         raise ValueError("summary_interval_seconds must be greater than 0")
+    if moderation_interval_seconds <= 0:
+        raise ValueError("moderation_interval_seconds must be greater than 0")
 
     try:
         run_startup_poll(poll_once, startup_limit, logger)
         window = PollWindowSummary.empty()
         last_summary_at = clock()
+        last_moderation_at = clock()
         while True:
             window.add(run_normal_poll(poll_once, normal_limit))
             if clock() - last_summary_at >= summary_interval_seconds:
                 log_poll_window_summary(logger, window)
                 window = PollWindowSummary.empty()
                 last_summary_at = clock()
+
+            if (
+                moderation_check is not None
+                and clock() - last_moderation_at >= moderation_interval_seconds
+            ):
+                run_moderation_with_retry(moderation_check)
+                last_moderation_at = clock()
 
             logger.debug("poll_sleep interval_seconds=%s", interval_seconds)
             sleep(interval_seconds)
@@ -175,6 +214,16 @@ def run_poll_with_retry(poll_once: Callable[[], PollSummary]) -> PollSummary:
     """Run one poll with retry handling for transient Reddit failures."""
     return retry_with_backoff(
         poll_once,
+        retry_exceptions=(PrawcoreException,),
+        attempts=3,
+        initial_delay_seconds=2,
+    )
+
+
+def run_moderation_with_retry(moderation_check: Callable[[], None]) -> None:
+    """Run a moderation check with retry handling for transient Reddit failures."""
+    retry_with_backoff(
+        moderation_check,
         retry_exceptions=(PrawcoreException,),
         attempts=3,
         initial_delay_seconds=2,

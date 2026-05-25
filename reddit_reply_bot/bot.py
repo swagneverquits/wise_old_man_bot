@@ -13,7 +13,7 @@ from reddit_reply_bot.matcher import comment_matches, submission_matches
 from reddit_reply_bot.quotes import choose_quote
 from reddit_reply_bot.reply_flow import ReplyFunction, skip_reason
 from reddit_reply_bot.runtime import Cooldown, extract_item_metadata, log_reply_event
-from reddit_reply_bot.storage import load_replied_ids, mark_replied
+from reddit_reply_bot.storage import add_reply_record, load_replied_ids, mark_replied, reply_audit_path
 
 TextExtractor = Callable[[Any], str | None]
 
@@ -148,11 +148,56 @@ def _process_item(
         log_reply_event(logger, "reply_dry_run", metadata, "would_reply")
         return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="would_reply")
 
-    reply(quote)
+    reply_result = reply(quote)
     mark_replied(replied_store_path, metadata.item_id)
+    record_posted_reply(
+        replied_store_path=replied_store_path,
+        item=item,
+        metadata=metadata,
+        quote=quote,
+        reply_result=reply_result,
+    )
 
     if cooldown is not None:
         cooldown.mark()
 
     log_reply_event(logger, "reply_posted", metadata, "posted")
     return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="posted")
+
+
+def record_posted_reply(
+    replied_store_path: Path,
+    item: Any,
+    metadata,
+    quote: str,
+    reply_result: Any,
+) -> None:
+    """Record bot reply metadata needed for later low-karma moderation."""
+    bot_reply_id = getattr(reply_result, "id", None)
+    if not bot_reply_id:
+        return
+
+    add_reply_record(
+        reply_audit_path(replied_store_path),
+        {
+            "status": "active",
+            "bot_reply_id": str(bot_reply_id),
+            "bot_reply_text": quote,
+            "parent_item_id": metadata.item_id,
+            "parent_kind": metadata.kind,
+            "parent_subreddit": metadata.subreddit,
+            "parent_username": metadata.username,
+            "parent_permalink": str(getattr(item, "permalink", "")),
+            "parent_text": parent_text(item, metadata.kind),
+        },
+    )
+
+
+def parent_text(item: Any, kind: str) -> str:
+    """Return a compact parent item text snapshot for moderation review."""
+    if kind == "comment":
+        return str(getattr(item, "body", "") or "")
+
+    title = str(getattr(item, "title", "") or "")
+    selftext = str(getattr(item, "selftext", "") or "")
+    return "\n".join(part for part in [title, selftext] if part)

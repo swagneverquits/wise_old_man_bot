@@ -5,11 +5,12 @@ from __future__ import annotations
 import random
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 from reddit_reply_bot.quotes import choose_quote
 from reddit_reply_bot.storage import load_replied_ids, mark_replied
 
-ReplyFunction = Callable[[str], None]
+ReplyFunction = Callable[[str], Any]
 
 
 def should_reply(

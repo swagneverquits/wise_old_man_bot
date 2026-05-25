@@ -17,6 +17,7 @@ class Author:
 class Comment:
     id = "comment123"
     subreddit = "test"
+    permalink = "/r/test/comments/post/comment123"
 
     def __init__(self, body: str, author: Author | None = None) -> None:
         self.body = body
@@ -26,6 +27,7 @@ class Comment:
 class Submission:
     id = "submission123"
     subreddit = "test"
+    permalink = "/r/test/comments/submission123"
 
     def __init__(
         self,
@@ -36,6 +38,11 @@ class Submission:
         self.title = title
         self.author = author
         self.selftext = selftext
+
+
+class Reply:
+    def __init__(self, item_id: str) -> None:
+        self.id = item_id
 
 
 class BotProcessingTests(unittest.TestCase):
@@ -88,6 +95,35 @@ class BotProcessingTests(unittest.TestCase):
             self.assertEqual(result.result, "posted")
             self.assertEqual(replies, ["Hello, Player."])
             self.assertEqual(load_replied_ids(store_path), {"comment123"})
+
+    def test_live_comment_records_reply_audit_metadata_when_reply_id_is_available(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+            logger = logging.getLogger("test-live-comment-audit")
+
+            def reply(_: str) -> Reply:
+                return Reply("botreply123")
+
+            result = process_comment(
+                comment=Comment("hello wise old man", Author("Player")),
+                quotes=["Hello, [player name]."],
+                replied_store_path=store_path,
+                blocked_users=set(),
+                bot_username="wise-old-man-bot",
+                allow_self_reply=False,
+                reply=reply,
+                dry_run=False,
+                logger=logger,
+                chooser=random.Random(1),
+            )
+
+            audit_path = Path(directory) / "reply_audit.json"
+            audit_text = audit_path.read_text(encoding="utf-8")
+
+            self.assertEqual(result.result, "posted")
+            self.assertIn('"bot_reply_id": "botreply123"', audit_text)
+            self.assertIn('"parent_item_id": "comment123"', audit_text)
+            self.assertIn('"parent_text": "hello wise old man"', audit_text)
 
     def test_submission_title_can_trigger_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
