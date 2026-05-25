@@ -1,95 +1,132 @@
-# reddit_reply_bot
+# Wise Old Man Bot
 
-Placeholder project for a Reddit reply bot.
+A Reddit reply bot for Old School RuneScape communities.
 
-## Environment
+The bot polls recent comments and submissions, looks for mentions of `wise old man`, and replies with a random quote from the Wise Old Man NPC. It intentionally ignores compact mentions like `WiseOldMan`, since that often refers to the stats-tracking website rather than the NPC.
 
-The preferred local environment is Conda:
+## Behavior
+
+- Polls `REDDIT_SUBREDDITS`, currently intended for `2007scape`.
+- Checks comment bodies, submission titles, and submission bodies.
+- Matches spaced mentions like `wise old man`, case-insensitively.
+- Ignores compact forms like `WiseOldMan`, `wiseoldman`, `wise oldman`, and `wiseold man`.
+- Picks a random quote from `config/quotes.json`.
+- Replaces `[player name]` in quotes with the Reddit author's username.
+- Records replied parent item IDs in `data/replied_items.json` so it does not reply twice to the same comment/post.
+- Records live reply audit metadata in `data/reply_audit.json`.
+- Deletes bot replies below the configured low-karma threshold during periodic moderation checks.
+
+## Configuration
+
+Create a local `.env` file from the example:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Fill in the Reddit credentials and runtime values:
+
+```env
+REDDIT_CLIENT_ID=your-client-id
+REDDIT_CLIENT_SECRET=your-client-secret
+REDDIT_USERNAME=wise-old-man-bot
+REDDIT_PASSWORD=your-reddit-password
+REDDIT_USER_AGENT=wise-old-man-bot by u/wise-old-man-bot
+REDDIT_SUBREDDITS=2007scape
+QUOTES_PATH=config/quotes.json
+BLOCKED_USERS_PATH=config/blocked_users.json
+REPLIED_ITEMS_PATH=data/replied_items.json
+DRY_RUN=true
+ALLOW_SELF_REPLY=false
+```
+
+Keep `.env` local. It is ignored by Git.
+
+Recommended split:
+
+- Local laptop: `DRY_RUN=true`
+- Cloud VM: `DRY_RUN=false`
+
+## State Files
+
+The bot writes runtime state under `data/`.
+
+| File | Purpose |
+| --- | --- |
+| `data/replied_items.json` | Parent comment/submission IDs the bot has already handled. |
+| `data/reply_audit.json` | Bot reply IDs and parent snapshots used for low-karma cleanup/review. |
+
+Both files are ignored by Git. In Docker, `./data` is mounted into the container so state survives rebuilds.
+
+## Local Environment
+
+The local development environment uses Conda:
 
 ```powershell
 conda env create -f environment.yml
 conda activate reddit-reply-bot
 ```
 
-If the environment already exists, update it with:
+If the environment already exists:
 
 ```powershell
 conda env update -f environment.yml --prune
 ```
 
-Miniconda is installed for this user. If `conda` is not available in the current terminal, close and reopen PowerShell so the Conda initialization takes effect.
-
-
-## Configuration
-
-Create a local `.env` file from the example and fill in Reddit credentials:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-The bot reads these files by default:
-
-- `config/quotes.json`
-- `config/blocked_users.json`
-- `data/replied_items.json`
-
-Keep `.env` local. It is ignored by Git.
-
-## Tests
+Run tests:
 
 ```powershell
 conda run -n reddit-reply-bot python -m unittest discover -s tests
 ```
 
-Current tests cover trigger matching, quote formatting, reply skip decisions, JSON persistence, config loading, data file validation, cooldowns, retries, and readable runtime logs.
+## Dry-Run Testing
 
-## Runtime Helpers
+Keep `DRY_RUN=true` when testing locally.
 
-The bot code includes small reliability helpers for:
-
-- Deleted author metadata extraction
-- Bot-user and blocked-user skip decisions
-- Reply cooldown tracking
-- Transient error retry with exponential backoff
-- Readable reply event logging
-
-## Dry Run
-
-Keep `DRY_RUN=true` in `.env` while validating the bot. In dry-run mode, matched comments and submissions log the intended reply but do not call Reddit and do not write the item ID to `data/replied_items.json`.
-
-Switch `DRY_RUN=false` only after confirming the logs show the replies you expect.
-
-To validate against Reddit safely:
-
-1. Set `REDDIT_SUBREDDITS=test` and `DRY_RUN=true` in `.env`.
-2. Create a post or comment in `https://www.reddit.com/r/test/` that mentions `wise old man` in the comment body, post title, or post body.
-3. Run a one-shot poll:
+Run a one-shot poll:
 
 ```powershell
 conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 ```
 
-4. Confirm the logs include `dry_run_reply`.
-5. Set `DRY_RUN=false` only when ready to test one real reply.
+In dry-run mode, the bot logs intended replies but does not post to Reddit and does not write the parent item ID to `data/replied_items.json`.
 
 ## Continuous Mode
 
-Run continuously with 2-minute polling and 10-minute summary logs:
+Run continuously with 2-minute polling, 10-minute summary logs, and hourly low-karma moderation:
 
 ```powershell
 conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600 --moderation-interval-seconds 3600 --low-karma-threshold -5
 ```
 
-Loop mode does one larger startup scan, then settles into normal polling. The default startup scan checks 1000 comments and 1000 submissions; each normal poll checks 200 comments and 200 submissions. Routine poll summaries are rolled up every 10 minutes so interesting reply events stay visible without printing a summary every poll.
+Loop mode does one larger startup scan, then settles into normal polling.
 
-In live mode, the bot also checks its recorded replies once per hour. If a bot reply drops below the configured low-karma threshold, it deletes that reply and keeps the parent item snapshot in `data/reply_audit.json` for review.
+Defaults used in production:
 
-Deployment notes and a sample `systemd` service are in `docs/DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
+| Option | Value | Meaning |
+| --- | --- | --- |
+| `--interval-seconds` | `120` | Poll every 2 minutes. |
+| `--limit` | `200` | Check 200 recent comments and 200 recent submissions per normal poll. |
+| `--startup-limit` | `1000` | Check a larger window on startup. |
+| `--summary-interval-seconds` | `600` | Print routine summaries every 10 minutes. |
+| `--moderation-interval-seconds` | `3600` | Check bot reply karma once per hour. |
+| `--low-karma-threshold` | `-5` | Delete bot replies below this score. |
+
+Summary logs look like:
+
+```text
+poll_summary
+  polls: 5
+  new comments: 4
+  new submissions: 1
+  replies: 0
+```
+
+Interesting events, like actual replies or deleted low-karma replies, are logged immediately.
 
 ## Docker
 
-Build and run the bot with Docker Compose:
+Build and run:
 
 ```powershell
 docker compose up -d --build
@@ -101,10 +138,33 @@ Follow logs:
 docker compose logs -f
 ```
 
-Stop the bot:
+Check status:
+
+```powershell
+docker compose ps
+```
+
+Stop:
 
 ```powershell
 docker compose down
 ```
 
-The `data/` folder is mounted into the container so `data/replied_items.json` persists across container rebuilds.
+The Compose service uses:
+
+```yaml
+restart: unless-stopped
+```
+
+So Docker restarts the bot after crashes or VM reboots unless it was manually stopped.
+
+## Cloud Update Flow
+
+On the Oracle VM, after pushing local code changes:
+
+```bash
+cd ~/reddit_reply_bot
+./deploy/update-server.sh
+```
+
+The helper script pulls the latest code, rebuilds/restarts the container, shows container status, and prints recent logs.
