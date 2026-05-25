@@ -30,6 +30,24 @@ class PollSummary:
 
 
 @dataclass
+class PollWindowSummary:
+    polls: int
+    comments_new: int
+    submissions_new: int
+    results: Counter[str]
+
+    @classmethod
+    def empty(cls) -> "PollWindowSummary":
+        return cls(polls=0, comments_new=0, submissions_new=0, results=Counter())
+
+    def add(self, summary: PollSummary) -> None:
+        self.polls += 1
+        self.comments_new += summary.comments_new
+        self.submissions_new += summary.submissions_new
+        self.results.update(summary.results)
+
+
+@dataclass
 class SeenItems:
     comment_ids: set[str]
     submission_ids: set[str]
@@ -46,6 +64,7 @@ def main() -> None:
     parser.add_argument("--cooldown-seconds", type=float, default=10)
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--interval-seconds", type=float, default=120)
+    parser.add_argument("--summary-interval-seconds", type=float, default=600)
     args = parser.parse_args()
 
     configure_logging()
@@ -58,13 +77,14 @@ def main() -> None:
     seen_items = SeenItems.empty() if args.loop else None
 
     LOGGER.info(
-        "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s",
+        "starting_bot subreddits=%s dry_run=%s allow_self_reply=%s limit=%s loop=%s interval_seconds=%s summary_interval_seconds=%s",
         config.subreddits,
         config.dry_run,
         config.allow_self_reply,
         args.limit,
         args.loop,
         args.interval_seconds,
+        args.summary_interval_seconds,
     )
 
     def poll_once(limit: int = args.limit) -> PollSummary:
@@ -89,10 +109,12 @@ def main() -> None:
             LOGGER,
             normal_limit=args.limit,
             startup_limit=args.startup_limit,
+            summary_interval_seconds=args.summary_interval_seconds,
         )
         return
 
-    run_poll_with_retry(lambda: poll_once(args.limit))
+    summary = run_poll_with_retry(lambda: poll_once(args.limit))
+    log_poll_summary(LOGGER, "poll_summary", summary)
 
 
 def run_startup_poll(
@@ -105,12 +127,13 @@ def run_startup_poll(
         raise ValueError("startup_limit must be greater than 0")
 
     logger.info("startup_poll limit=%s", startup_limit)
-    run_poll_with_retry(lambda: poll_once(startup_limit))
+    summary = run_poll_with_retry(lambda: poll_once(startup_limit))
+    log_poll_summary(logger, "startup_summary", summary)
 
 
-def run_normal_poll(poll_once: Callable[[int], PollSummary], limit: int) -> None:
+def run_normal_poll(poll_once: Callable[[int], PollSummary], limit: int) -> PollSummary:
     """Run one normal poll."""
-    run_poll_with_retry(lambda: poll_once(limit))
+    return run_poll_with_retry(lambda: poll_once(limit))
 
 
 def run_loop(
@@ -119,29 +142,64 @@ def run_loop(
     logger: logging.Logger,
     normal_limit: int = 200,
     startup_limit: int = 1000,
+    summary_interval_seconds: float = 600,
     sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
 ) -> None:
     """Run polling continuously until interrupted."""
     if interval_seconds <= 0:
         raise ValueError("interval_seconds must be greater than 0")
+    if summary_interval_seconds <= 0:
+        raise ValueError("summary_interval_seconds must be greater than 0")
 
     try:
         run_startup_poll(poll_once, startup_limit, logger)
+        window = PollWindowSummary.empty()
+        last_summary_at = clock()
         while True:
-            run_normal_poll(poll_once, normal_limit)
-            logger.info("poll_sleep interval_seconds=%s", interval_seconds)
+            window.add(run_normal_poll(poll_once, normal_limit))
+            if clock() - last_summary_at >= summary_interval_seconds:
+                log_poll_window_summary(logger, window)
+                window = PollWindowSummary.empty()
+                last_summary_at = clock()
+
+            logger.debug("poll_sleep interval_seconds=%s", interval_seconds)
             sleep(interval_seconds)
     except KeyboardInterrupt:
+        if "window" in locals() and window.polls:
+            log_poll_window_summary(logger, window)
         logger.info("shutdown_requested")
 
 
-def run_poll_with_retry(poll_once: Callable[[], None]) -> None:
+def run_poll_with_retry(poll_once: Callable[[], PollSummary]) -> PollSummary:
     """Run one poll with retry handling for transient Reddit failures."""
-    retry_with_backoff(
+    return retry_with_backoff(
         poll_once,
         retry_exceptions=(PrawcoreException,),
         attempts=3,
         initial_delay_seconds=2,
+    )
+
+
+def log_poll_summary(logger: logging.Logger, event: str, summary: PollSummary) -> None:
+    """Log one poll summary."""
+    logger.info(
+        "%s\n  new comments: %s\n  new submissions: %s\n  replies: %s",
+        event,
+        summary.comments_new,
+        summary.submissions_new,
+        summary.results["posted"],
+    )
+
+
+def log_poll_window_summary(logger: logging.Logger, summary: PollWindowSummary) -> None:
+    """Log a rolled-up summary for several normal polls."""
+    logger.info(
+        "poll_summary\n  polls: %s\n  new comments: %s\n  new submissions: %s\n  replies: %s",
+        summary.polls,
+        summary.comments_new,
+        summary.submissions_new,
+        summary.results["posted"],
     )
 
 
@@ -214,16 +272,6 @@ def poll_subreddit(
         comments_new=comments_new,
         submissions_new=submissions_new,
         results=results,
-    )
-    logger.info(
-        "poll_summary new_comments=%s new_submissions=%s posted=%s dry_run=%s skipped=%s no_match=%s cooldown=%s",
-        summary.comments_new,
-        summary.submissions_new,
-        summary.results["posted"],
-        summary.results["would_reply"],
-        summary.results["blocked_user"] + summary.results["self_reply"],
-        summary.results["no_match"],
-        summary.results["cooldown"],
     )
     return summary
 

@@ -42,7 +42,7 @@ Keep `.env` local. It is ignored by Git.
 conda run -n reddit-reply-bot python -m unittest discover -s tests
 ```
 
-Current tests cover trigger matching, quote formatting, reply skip decisions, JSON persistence, config loading, data file validation, cooldowns, retries, and structured runtime logs.
+Current tests cover trigger matching, quote formatting, reply skip decisions, JSON persistence, config loading, data file validation, cooldowns, retries, and readable runtime logs.
 
 ## Runtime Helpers
 
@@ -52,7 +52,7 @@ The bot code includes small reliability helpers for:
 - Bot-user and blocked-user skip decisions
 - Reply cooldown tracking
 - Transient error retry with exponential backoff
-- JSON structured reply event logging
+- Readable reply event logging
 
 ## Dry Run
 
@@ -75,13 +75,13 @@ conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 
 ## Continuous Mode
 
-Run continuously with 5-minute polling:
+Run continuously with 2-minute polling and 10-minute summary logs:
 
 ```powershell
-conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000
+conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600
 ```
 
-Loop mode does one larger startup scan, then settles into normal polling. The default startup scan checks 1000 comments and 1000 submissions; each normal poll checks 200 comments and 200 submissions.
+Loop mode does one larger startup scan, then settles into normal polling. The default startup scan checks 1000 comments and 1000 submissions; each normal poll checks 200 comments and 200 submissions. Routine poll summaries are rolled up every 10 minutes so interesting reply events stay visible without printing a summary every poll.
 
 Deployment notes and a sample `systemd` service are in `docs/DEPLOYMENT.md` and `deploy/reddit-reply-bot.service.example`.
 

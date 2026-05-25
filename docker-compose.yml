@@ -17,3 +17,5 @@ services:
       - "200"
       - --startup-limit
       - "1000"
+      - --summary-interval-seconds
+      - "600"

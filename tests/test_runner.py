@@ -1,9 +1,10 @@
 import logging
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
-from reddit_reply_bot.runner import SeenItems, poll_subreddit, run_loop
+from reddit_reply_bot.runner import PollSummary, SeenItems, poll_subreddit, run_loop
 from reddit_reply_bot.runtime import Cooldown
 from reddit_reply_bot.storage import load_replied_ids
 
@@ -153,9 +154,16 @@ class RunnerTests(unittest.TestCase):
         calls = 0
         sleeps: list[float] = []
 
-        def poll_once(_: int) -> None:
+        def poll_once(_: int) -> PollSummary:
             nonlocal calls
             calls += 1
+            return PollSummary(
+                comments_checked=0,
+                submissions_checked=0,
+                comments_new=0,
+                submissions_new=0,
+                results=Counter(),
+            )
 
         def sleep(_: float) -> None:
             sleeps.append(_)
@@ -173,10 +181,57 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(calls, 2)
         self.assertEqual(sleeps, [120])
 
+    def test_loop_rolls_up_normal_poll_summaries(self) -> None:
+        calls = 0
+        sleeps = 0
+        now = 0.0
+        logger = logging.getLogger("test-runner-rollup")
+
+        def poll_once(_: int) -> PollSummary:
+            nonlocal calls
+            calls += 1
+            return PollSummary(
+                comments_checked=1,
+                submissions_checked=1,
+                comments_new=1,
+                submissions_new=2,
+                results=Counter({"posted": 1}),
+            )
+
+        def sleep(seconds: float) -> None:
+            nonlocal now, sleeps
+            sleeps += 1
+            now += seconds
+            if sleeps == 3:
+                raise KeyboardInterrupt
+
+        with self.assertLogs(logger, level="INFO") as captured:
+            run_loop(
+                poll_once,
+                interval_seconds=120,
+                summary_interval_seconds=240,
+                logger=logger,
+                normal_limit=200,
+                startup_limit=1000,
+                sleep=sleep,
+                clock=lambda: now,
+            )
+
+        messages = [record.getMessage() for record in captured.records]
+
+        self.assertIn(
+            "startup_summary\n  new comments: 1\n  new submissions: 2\n  replies: 1",
+            messages,
+        )
+        self.assertIn(
+            "poll_summary\n  polls: 3\n  new comments: 3\n  new submissions: 6\n  replies: 3",
+            messages,
+        )
+
     def test_loop_rejects_non_positive_interval(self) -> None:
         with self.assertRaises(ValueError):
             run_loop(
-                lambda _: None,
+                lambda _: PollSummary(0, 0, 0, 0, Counter()),
                 interval_seconds=0,
                 logger=logging.getLogger("test-runner-loop"),
             )
@@ -184,10 +239,20 @@ class RunnerTests(unittest.TestCase):
     def test_loop_rejects_non_positive_startup_limit(self) -> None:
         with self.assertRaises(ValueError):
             run_loop(
-                lambda _: None,
+                lambda _: PollSummary(0, 0, 0, 0, Counter()),
                 interval_seconds=120,
                 logger=logging.getLogger("test-runner-loop"),
                 startup_limit=0,
+                sleep=lambda _: None,
+            )
+
+    def test_loop_rejects_non_positive_summary_interval(self) -> None:
+        with self.assertRaises(ValueError):
+            run_loop(
+                lambda _: PollSummary(0, 0, 0, 0, Counter()),
+                interval_seconds=120,
+                summary_interval_seconds=0,
+                logger=logging.getLogger("test-runner-loop"),
                 sleep=lambda _: None,
             )
 
