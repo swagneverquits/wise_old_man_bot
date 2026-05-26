@@ -42,6 +42,11 @@ def reply_audit_path(replied_items_path: Path) -> Path:
     return replied_items_path.with_name("reply_audit.json")
 
 
+def match_audit_path(replied_items_path: Path) -> Path:
+    """Return the matched-item audit file path colocated with replied_items.json."""
+    return replied_items_path.with_name("match_audit.json")
+
+
 def load_reply_records(path: Path) -> list[dict[str, object]]:
     """Load reply audit records from a JSON file."""
     if not path.exists():
@@ -77,3 +82,8 @@ def add_reply_record(path: Path, record: dict[str, object]) -> list[dict[str, ob
     records.append(record)
     save_reply_records(path, records)
     return records
+
+
+def add_match_record(path: Path, record: dict[str, object]) -> list[dict[str, object]]:
+    """Append one matched-item audit record and return all records."""
+    return add_reply_record(path, record)

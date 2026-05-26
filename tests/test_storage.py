@@ -7,6 +7,7 @@ from reddit_reply_bot.storage import (
     load_replied_ids,
     load_reply_records,
     mark_replied,
+    match_audit_path,
     reply_audit_path,
     save_replied_ids,
 )
@@ -40,6 +41,11 @@ class StorageTests(unittest.TestCase):
         path = Path("data/replied_items.json")
 
         self.assertEqual(reply_audit_path(path), Path("data/reply_audit.json"))
+
+    def test_match_audit_path_is_colocated_with_replied_items(self) -> None:
+        path = Path("data/replied_items.json")
+
+        self.assertEqual(match_audit_path(path), Path("data/match_audit.json"))
 
     def test_add_reply_record_persists_audit_record(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

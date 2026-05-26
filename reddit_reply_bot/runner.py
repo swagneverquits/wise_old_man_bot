@@ -68,7 +68,7 @@ def main() -> None:
     parser.add_argument("--interval-seconds", type=float, default=120)
     parser.add_argument("--summary-interval-seconds", type=float, default=600)
     parser.add_argument("--moderation-interval-seconds", type=float, default=3600)
-    parser.add_argument("--low-karma-threshold", type=int, default=-5)
+    parser.add_argument("--low-karma-threshold", type=int, default=-3)
     args = parser.parse_args()
 
     configure_logging()

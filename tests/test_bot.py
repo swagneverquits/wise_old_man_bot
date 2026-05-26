@@ -6,7 +6,7 @@ from pathlib import Path
 
 from reddit_reply_bot.bot import process_comment, process_submission
 from reddit_reply_bot.runtime import Cooldown
-from reddit_reply_bot.storage import load_replied_ids
+from reddit_reply_bot.storage import load_replied_ids, load_reply_records, match_audit_path
 
 
 class Author:
@@ -14,14 +14,32 @@ class Author:
         self.name = name
 
 
+class ParentComment:
+    subreddit = "test"
+
+    def __init__(self, body: str) -> None:
+        self.body = body
+
+
 class Comment:
     id = "comment123"
     subreddit = "test"
     permalink = "/r/test/comments/post/comment123"
 
-    def __init__(self, body: str, author: Author | None = None) -> None:
+    def __init__(
+        self,
+        body: str,
+        author: Author | None = None,
+        parent_item: object | None = None,
+    ) -> None:
         self.body = body
         self.author = author
+        self._parent_item = parent_item
+
+    def parent(self) -> object:
+        if self._parent_item is None:
+            return ParentComment("")
+        return self._parent_item
 
 
 class Submission:
@@ -46,6 +64,29 @@ class Reply:
 
 
 class BotProcessingTests(unittest.TestCase):
+    def process_test_comment(
+        self,
+        store_path: Path,
+        body: str = "hello wise old man",
+        author: str = "Player",
+        parent_item: object | None = None,
+        reply=None,
+        dry_run: bool = False,
+        logger_name: str = "test-comment",
+    ):
+        return process_comment(
+            comment=Comment(body, Author(author), parent_item=parent_item),
+            quotes=["Hello, [player name]."],
+            replied_store_path=store_path,
+            blocked_users=set(),
+            bot_username="wise-old-man-bot",
+            allow_self_reply=False,
+            reply=reply or (lambda _: None),
+            dry_run=dry_run,
+            logger=logging.getLogger(logger_name),
+            chooser=random.Random(1),
+        )
+
     def test_dry_run_comment_logs_intended_reply_without_posting_or_persisting(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store_path = Path(directory) / "replied_items.json"
@@ -124,6 +165,48 @@ class BotProcessingTests(unittest.TestCase):
             self.assertIn('"bot_reply_id": "botreply123"', audit_text)
             self.assertIn('"parent_item_id": "comment123"', audit_text)
             self.assertIn('"parent_text": "hello wise old man"', audit_text)
+
+    def test_comment_records_match_audit_for_posted_reply(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+
+            def reply(_: str) -> Reply:
+                return Reply("botreply123")
+
+            result = self.process_test_comment(
+                store_path,
+                reply=reply,
+                logger_name="test-live-comment-match-audit",
+            )
+            records = load_reply_records(match_audit_path(store_path))
+
+            self.assertEqual(result.result, "posted")
+            self.assertEqual(records[0]["result"], "posted")
+            self.assertEqual(records[0]["bot_reply_id"], "botreply123")
+            self.assertEqual(records[0]["match_reason"], "matched")
+            self.assertEqual(records[0]["text"], "hello wise old man")
+
+    def test_tracker_context_skip_records_match_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "replied_items.json"
+            replies: list[str] = []
+
+            result = self.process_test_comment(
+                store_path,
+                "They probably didn't log their account on wise old man for a long time.",
+                parent_item=ParentComment("What skill is it? 10m/hr xp rates."),
+                reply=replies.append,
+                logger_name="test-tracker-context-match-audit",
+            )
+            records = load_reply_records(match_audit_path(store_path))
+
+            self.assertFalse(result.did_reply)
+            self.assertEqual(result.result, "tracker_context")
+            self.assertEqual(replies, [])
+            self.assertEqual(records[0]["result"], "tracker_context")
+            self.assertEqual(records[0]["match_reason"], "tracker_context")
+            self.assertIn("current:account", records[0]["match_signals"])
+            self.assertIn("parent:xp_rates", records[0]["match_signals"])
 
     def test_submission_title_can_trigger_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

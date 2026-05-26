@@ -22,4 +22,4 @@ services:
       - --moderation-interval-seconds
       - "3600"
       - --low-karma-threshold
-      - "-5"
+      - "-3"

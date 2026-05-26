@@ -7,5 +7,7 @@ __pycache__/
 replied_items.json
 data/replied_items.json
 data/reply_audit.json
+data/match_audit.json
+data/*.from-server.json
 docs/
 plans/

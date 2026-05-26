@@ -14,6 +14,7 @@ The bot polls recent comments and submissions, looks for mentions of `wise old m
 - Replaces `[player name]` in quotes with the Reddit author's username.
 - Records replied parent item IDs in `data/replied_items.json` so it does not reply twice to the same comment/post.
 - Records live reply audit metadata in `data/reply_audit.json`.
+- Records every matched `wise old man` trigger in `data/match_audit.json` for review, including skipped tracker-site context.
 - Deletes bot replies below the configured low-karma threshold during periodic moderation checks.
 
 ## Configuration
@@ -55,8 +56,9 @@ The bot writes runtime state under `data/`.
 | --- | --- |
 | `data/replied_items.json` | Parent comment/submission IDs the bot has already handled. |
 | `data/reply_audit.json` | Bot reply IDs and parent snapshots used for low-karma cleanup/review. |
+| `data/match_audit.json` | Every current-text trigger and final result, including skipped matches. |
 
-Both files are ignored by Git. In Docker, `./data` is mounted into the container so state survives rebuilds.
+These files are ignored by Git. In Docker, `./data` is mounted into the container so state survives rebuilds.
 
 ## Local Environment
 
@@ -96,7 +98,7 @@ In dry-run mode, the bot logs intended replies but does not post to Reddit and d
 Run continuously with 2-minute polling, 10-minute summary logs, and hourly low-karma moderation:
 
 ```powershell
-conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600 --moderation-interval-seconds 3600 --low-karma-threshold -5
+conda run -n reddit-reply-bot python -m reddit_reply_bot --loop --interval-seconds 120 --limit 200 --startup-limit 1000 --summary-interval-seconds 600 --moderation-interval-seconds 3600 --low-karma-threshold -3
 ```
 
 Loop mode does one larger startup scan, then settles into normal polling.
@@ -110,7 +112,7 @@ Defaults used in production:
 | `--startup-limit` | `1000` | Check a larger window on startup. |
 | `--summary-interval-seconds` | `600` | Print routine summaries every 10 minutes. |
 | `--moderation-interval-seconds` | `3600` | Check bot reply karma once per hour. |
-| `--low-karma-threshold` | `-5` | Delete bot replies below this score. |
+| `--low-karma-threshold` | `-3` | Delete bot replies below this score. |
 
 Summary logs look like:
 
