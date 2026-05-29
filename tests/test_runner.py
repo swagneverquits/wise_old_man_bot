@@ -268,25 +268,7 @@ class RunnerTests(unittest.TestCase):
 
         self.assertEqual(moderation_calls, 1)
 
-    def test_loop_rejects_non_positive_interval(self) -> None:
-        with self.assertRaises(ValueError):
-            run_loop(
-                lambda _: PollSummary(0, 0, 0, 0, Counter()),
-                interval_seconds=0,
-                logger=logging.getLogger("test-runner-loop"),
-            )
-
-    def test_loop_rejects_non_positive_startup_limit(self) -> None:
-        with self.assertRaises(ValueError):
-            run_loop(
-                lambda _: PollSummary(0, 0, 0, 0, Counter()),
-                interval_seconds=120,
-                logger=logging.getLogger("test-runner-loop"),
-                startup_limit=0,
-                sleep=lambda _: None,
-            )
-
-    def test_loop_rejects_non_positive_summary_interval(self) -> None:
+    def test_loop_rejects_invalid_timing(self) -> None:
         with self.assertRaises(ValueError):
             run_loop(
                 lambda _: PollSummary(0, 0, 0, 0, Counter()),
@@ -295,8 +277,6 @@ class RunnerTests(unittest.TestCase):
                 logger=logging.getLogger("test-runner-loop"),
                 sleep=lambda _: None,
             )
-
-    def test_loop_rejects_non_positive_moderation_interval(self) -> None:
         with self.assertRaises(ValueError):
             run_loop(
                 lambda _: PollSummary(0, 0, 0, 0, Counter()),

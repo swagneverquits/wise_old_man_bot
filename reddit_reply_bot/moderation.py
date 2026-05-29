@@ -23,7 +23,8 @@ def delete_low_karma_replies(
     changed = False
 
     for record in records:
-        if record.get("status") != "active":
+        reply_status = record.get("reply_status", record.get("status"))
+        if reply_status != "active":
             results["ignored"] += 1
             continue
 
@@ -42,7 +43,7 @@ def delete_low_karma_replies(
             continue
 
         bot_comment.delete()
-        record["status"] = "deleted_low_karma"
+        record["reply_status"] = "deleted_low_karma"
         record["deleted_score"] = score
         record["deleted_at"] = datetime.now(UTC).isoformat()
         changed = True
@@ -51,10 +52,10 @@ def delete_low_karma_replies(
             "reply_deleted_low_karma bot_reply_id=%s score=%s parent_kind=%s parent_id=%s parent_subreddit=%s parent_username=%s",
             bot_reply_id,
             score,
-            record.get("parent_kind", ""),
-            record.get("parent_item_id", ""),
-            record.get("parent_subreddit", ""),
-            record.get("parent_username", ""),
+            record.get("kind", record.get("parent_kind", "")),
+            record.get("item_id", record.get("parent_item_id", "")),
+            record.get("subreddit", record.get("parent_subreddit", "")),
+            record.get("username", record.get("parent_username", "")),
         )
 
     if changed:

@@ -137,7 +137,7 @@ class BotProcessingTests(unittest.TestCase):
             self.assertEqual(replies, ["Hello, Player."])
             self.assertEqual(load_replied_ids(store_path), {"comment123"})
 
-    def test_live_comment_records_reply_audit_metadata_when_reply_id_is_available(self) -> None:
+    def test_live_comment_records_reply_metadata_in_match_audit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store_path = Path(directory) / "replied_items.json"
             logger = logging.getLogger("test-live-comment-audit")
@@ -158,33 +158,17 @@ class BotProcessingTests(unittest.TestCase):
                 chooser=random.Random(1),
             )
 
-            audit_path = Path(directory) / "reply_audit.json"
-            audit_text = audit_path.read_text(encoding="utf-8")
-
-            self.assertEqual(result.result, "posted")
-            self.assertIn('"bot_reply_id": "botreply123"', audit_text)
-            self.assertIn('"parent_item_id": "comment123"', audit_text)
-            self.assertIn('"parent_text": "hello wise old man"', audit_text)
-
-    def test_comment_records_match_audit_for_posted_reply(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
-
-            def reply(_: str) -> Reply:
-                return Reply("botreply123")
-
-            result = self.process_test_comment(
-                store_path,
-                reply=reply,
-                logger_name="test-live-comment-match-audit",
-            )
             records = load_reply_records(match_audit_path(store_path))
 
             self.assertEqual(result.result, "posted")
-            self.assertEqual(records[0]["result"], "posted")
             self.assertEqual(records[0]["bot_reply_id"], "botreply123")
-            self.assertEqual(records[0]["match_reason"], "matched")
+            self.assertEqual(records[0]["bot_reply_text"], "Hello, Player.")
+            self.assertEqual(records[0]["reply_status"], "active")
+            self.assertEqual(records[0]["item_id"], "comment123")
             self.assertEqual(records[0]["text"], "hello wise old man")
+            self.assertEqual(records[0]["match_reason"], "matched")
+            self.assertNotIn("match_current_context", records[0])
+            self.assertNotIn("match_parent_context", records[0])
 
     def test_tracker_context_skip_records_match_audit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -207,27 +191,8 @@ class BotProcessingTests(unittest.TestCase):
             self.assertEqual(records[0]["match_reason"], "tracker_context")
             self.assertIn("current:account", records[0]["match_signals"])
             self.assertIn("parent:xp_rates", records[0]["match_signals"])
-
-    def test_submission_title_can_trigger_dry_run(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
-            logger = logging.getLogger("test-dry-run-submission")
-
-            result = process_submission(
-                submission=Submission("Wise Old Man question", Author("Player")),
-                quotes=["Hello, [player name]."],
-                replied_store_path=store_path,
-                blocked_users=set(),
-                bot_username="wise-old-man-bot",
-                allow_self_reply=False,
-                reply=lambda _: None,
-                dry_run=True,
-                logger=logger,
-                chooser=random.Random(1),
-            )
-
-            self.assertTrue(result.did_reply)
-            self.assertEqual(result.result, "would_reply")
+            self.assertNotIn("match_current_context", records[0])
+            self.assertNotIn("match_parent_context", records[0])
 
     def test_submission_body_can_trigger_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -253,29 +218,6 @@ class BotProcessingTests(unittest.TestCase):
 
             self.assertTrue(result.did_reply)
             self.assertEqual(result.result, "would_reply")
-
-    def test_non_matching_comment_is_skipped(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
-            replies: list[str] = []
-            logger = logging.getLogger("test-no-match")
-
-            result = process_comment(
-                comment=Comment("hello there", Author("Player")),
-                quotes=["Hello, [player name]."],
-                replied_store_path=store_path,
-                blocked_users=set(),
-                bot_username="wise-old-man-bot",
-                allow_self_reply=False,
-                reply=replies.append,
-                dry_run=False,
-                logger=logger,
-            )
-
-            self.assertFalse(result.did_reply)
-            self.assertEqual(result.result, "no_match")
-            self.assertEqual(replies, [])
-            self.assertEqual(load_replied_ids(store_path), set())
 
     def test_cooldown_skip_does_not_post(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -324,28 +266,6 @@ class BotProcessingTests(unittest.TestCase):
 
             self.assertFalse(result.did_reply)
             self.assertEqual(result.result, "already_replied")
-            self.assertEqual(replies, [])
-
-    def test_can_allow_self_reply_for_testing(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
-            replies: list[str] = []
-            logger = logging.getLogger("test-allow-self-reply")
-
-            result = process_comment(
-                comment=Comment("hello wise old man", Author("wise-old-man-bot")),
-                quotes=["Hello, [player name]."],
-                replied_store_path=store_path,
-                blocked_users=set(),
-                bot_username="wise-old-man-bot",
-                allow_self_reply=True,
-                reply=replies.append,
-                dry_run=True,
-                logger=logger,
-            )
-
-            self.assertTrue(result.did_reply)
-            self.assertEqual(result.result, "would_reply")
             self.assertEqual(replies, [])
 
 

@@ -17,7 +17,7 @@ from reddit_reply_bot.data_files import load_blocked_users, load_quotes
 from reddit_reply_bot.moderation import delete_low_karma_replies
 from reddit_reply_bot.reddit_client import create_reddit_client
 from reddit_reply_bot.runtime import Cooldown, configure_logging, retry_with_backoff
-from reddit_reply_bot.storage import reply_audit_path
+from reddit_reply_bot.storage import match_audit_path
 
 LOGGER = logging.getLogger("reddit_reply_bot")
 
@@ -114,7 +114,7 @@ def main() -> None:
 
         delete_low_karma_replies(
             reddit=reddit,
-            reply_records_path=reply_audit_path(config.replied_items_path),
+            reply_records_path=match_audit_path(config.replied_items_path),
             karma_threshold=args.low_karma_threshold,
             logger=LOGGER,
         )

@@ -27,17 +27,17 @@ class Reddit:
 class ModerationTests(unittest.TestCase):
     def test_deletes_active_reply_below_karma_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "reply_audit.json"
+            path = Path(directory) / "match_audit.json"
             save_reply_records(
                 path,
                 [
                     {
-                        "status": "active",
+                        "reply_status": "active",
                         "bot_reply_id": "reply123",
-                        "parent_item_id": "parent123",
-                        "parent_kind": "comment",
-                        "parent_subreddit": "test",
-                        "parent_username": "Player",
+                        "item_id": "parent123",
+                        "kind": "comment",
+                        "subreddit": "test",
+                        "username": "Player",
                     }
                 ],
             )
@@ -54,13 +54,13 @@ class ModerationTests(unittest.TestCase):
 
             self.assertTrue(comment.deleted)
             self.assertEqual(results["deleted"], 1)
-            self.assertEqual(records[0]["status"], "deleted_low_karma")
+            self.assertEqual(records[0]["reply_status"], "deleted_low_karma")
             self.assertEqual(records[0]["deleted_score"], -6)
 
     def test_keeps_active_reply_at_or_above_karma_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "reply_audit.json"
-            save_reply_records(path, [{"status": "active", "bot_reply_id": "reply123"}])
+            path = Path(directory) / "match_audit.json"
+            save_reply_records(path, [{"reply_status": "active", "bot_reply_id": "reply123"}])
             comment = Comment(score=-5)
 
             results = delete_low_karma_replies(
@@ -74,8 +74,22 @@ class ModerationTests(unittest.TestCase):
 
             self.assertFalse(comment.deleted)
             self.assertEqual(results["kept"], 1)
-            self.assertEqual(records[0]["status"], "active")
+            self.assertEqual(records[0]["reply_status"], "active")
             self.assertEqual(records[0]["last_score"], -5)
+
+    def test_ignores_matched_items_without_posted_replies(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "match_audit.json"
+            save_reply_records(path, [{"result": "tracker_context", "item_id": "comment123"}])
+
+            results = delete_low_karma_replies(
+                reddit=Reddit({}),
+                reply_records_path=path,
+                karma_threshold=-5,
+                logger=logging.getLogger("test-ignore-unposted-match"),
+            )
+
+            self.assertEqual(results["ignored"], 1)
 
 
 if __name__ == "__main__":

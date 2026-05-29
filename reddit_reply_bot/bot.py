@@ -16,11 +16,9 @@ from reddit_reply_bot.reply_flow import ReplyFunction, skip_reason
 from reddit_reply_bot.runtime import Cooldown, extract_item_metadata, log_reply_event
 from reddit_reply_bot.storage import (
     add_match_record,
-    add_reply_record,
     load_replied_ids,
     mark_replied,
     match_audit_path,
-    reply_audit_path,
 )
 
 ParentTextExtractor = Callable[[Any], str]
@@ -205,13 +203,6 @@ def _process_item(
 
     reply_result = reply(quote)
     mark_replied(replied_store_path, metadata.item_id)
-    record_posted_reply(
-        replied_store_path=replied_store_path,
-        item=item,
-        metadata=metadata,
-        quote=quote,
-        reply_result=reply_result,
-    )
 
     if cooldown is not None:
         cooldown.mark()
@@ -231,34 +222,6 @@ def _process_item(
     return ProcessResult(kind=metadata.kind, item_id=metadata.item_id, result="posted")
 
 
-def record_posted_reply(
-    replied_store_path: Path,
-    item: Any,
-    metadata,
-    quote: str,
-    reply_result: Any,
-) -> None:
-    """Record bot reply metadata needed for later low-karma moderation."""
-    bot_reply_id = getattr(reply_result, "id", None)
-    if not bot_reply_id:
-        return
-
-    add_reply_record(
-        reply_audit_path(replied_store_path),
-        {
-            "status": "active",
-            "bot_reply_id": str(bot_reply_id),
-            "bot_reply_text": quote,
-            "parent_item_id": metadata.item_id,
-            "parent_kind": metadata.kind,
-            "parent_subreddit": metadata.subreddit,
-            "parent_username": metadata.username,
-            "parent_permalink": str(getattr(item, "permalink", "")),
-            "parent_text": parent_text(item, metadata.kind),
-        },
-    )
-
-
 def record_match(
     replied_store_path: Path,
     item: Any,
@@ -273,17 +236,15 @@ def record_match(
     """Record every current-text Wise Old Man trigger for later review."""
     record: dict[str, object] = {
         "created_at": datetime.now(UTC).isoformat(),
-        "result": result,
-        "match_reason": decision.reason,
-        "match_signals": list(decision.signals),
-        "match_mention": decision.mention,
-        "match_current_context": decision.current_context,
-        "match_parent_context": decision.parent_context,
         "item_id": metadata.item_id,
         "kind": metadata.kind,
         "subreddit": metadata.subreddit,
         "username": metadata.username,
         "permalink": str(getattr(item, "permalink", "")),
+        "result": result,
+        "match_reason": decision.reason,
+        "match_mention": decision.mention,
+        "match_signals": list(decision.signals),
         "text": text or "",
         "parent_context": parent_context,
     }
@@ -293,6 +254,7 @@ def record_match(
     bot_reply_id = getattr(reply_result, "id", None)
     if bot_reply_id:
         record["bot_reply_id"] = str(bot_reply_id)
+        record["reply_status"] = "active"
 
     add_match_record(match_audit_path(replied_store_path), record)
 

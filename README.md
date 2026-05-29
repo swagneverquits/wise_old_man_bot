@@ -13,8 +13,7 @@ The bot polls recent comments and submissions, looks for mentions of `wise old m
 - Picks a random quote from `config/quotes.json`.
 - Replaces `[player name]` in quotes with the Reddit author's username.
 - Records replied parent item IDs in `data/replied_items.json` so it does not reply twice to the same comment/post.
-- Records live reply audit metadata in `data/reply_audit.json`.
-- Records every matched `wise old man` trigger in `data/match_audit.json` for review, including skipped tracker-site context.
+- Records every matched `wise old man` trigger in `data/match_audit.json`, including skipped tracker-site context and posted-reply metadata.
 - Deletes bot replies below the configured low-karma threshold during periodic moderation checks.
 
 ## Configuration
@@ -55,8 +54,7 @@ The bot writes runtime state under `data/`.
 | File | Purpose |
 | --- | --- |
 | `data/replied_items.json` | Parent comment/submission IDs the bot has already handled. |
-| `data/reply_audit.json` | Bot reply IDs and parent snapshots used for low-karma cleanup/review. |
-| `data/match_audit.json` | Every current-text trigger and final result, including skipped matches. |
+| `data/match_audit.json` | Every current-text trigger and final result, including skipped matches, posted reply IDs/text, and reply karma moderation state. |
 
 These files are ignored by Git. In Docker, `./data` is mounted into the container so state survives rebuilds.
 

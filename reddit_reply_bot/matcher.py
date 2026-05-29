@@ -89,7 +89,7 @@ def decide_wise_old_man_match(
     if match is None:
         return MatchDecision(should_reply=False, reason="no_match")
 
-    current_context = _mention_context(current_text, match)
+    current_context = current_text
     parent_context = parent_text or ""
     signals = tuple(
         sorted(
@@ -136,23 +136,6 @@ def comment_matches(comment_body: str | None) -> bool:
 def submission_matches(text: str | None) -> bool:
     """Return whether a Reddit submission should trigger the bot."""
     return decide_wise_old_man_match(text).should_reply
-
-
-def _mention_context(text: str, match: re.Match[str], window_words: int = 12) -> str:
-    words = list(WORD_PATTERN.finditer(text))
-    mention_start = match.start()
-    mention_end = match.end()
-    mention_indexes = [
-        index
-        for index, word in enumerate(words)
-        if word.start() < mention_end and word.end() > mention_start
-    ]
-    if not mention_indexes:
-        return match.group(0)
-
-    start_index = max(0, mention_indexes[0] - window_words)
-    end_index = min(len(words), mention_indexes[-1] + window_words + 1)
-    return " ".join(word.group(0) for word in words[start_index:end_index])
 
 
 def _tracker_signals(text: str, source: str) -> set[str]:
