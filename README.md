@@ -164,7 +164,7 @@ On the Oracle VM, after pushing local code changes:
 
 ```bash
 cd ~/reddit_reply_bot
-./deploy/update-server.sh
+./deploy/restart.sh
 ```
 
-The helper script pulls the latest code, rebuilds/restarts the container, shows container status, and prints recent logs.
+The helper script pulls the latest code, stops the current container, rebuilds/restarts it, shows container status, and prints recent logs.

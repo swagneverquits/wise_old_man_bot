@@ -12,6 +12,7 @@ compose() {
 }
 
 git pull --ff-only
+compose down
 compose up -d --build
 compose ps
 compose logs --tail 80
