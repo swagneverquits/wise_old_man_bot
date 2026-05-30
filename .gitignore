@@ -8,6 +8,9 @@ replied_items.json
 data/replied_items.json
 data/reply_audit.json
 data/match_audit.json
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
 data/*.from-server.json
 data/from-server/
 docs/

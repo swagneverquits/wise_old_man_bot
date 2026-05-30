@@ -8,9 +8,12 @@ import sqlite3
 from pathlib import Path
 
 from reddit_reply_bot.storage import (
+    add_match_record,
     clean_match_record,
     dedupe_match_records_file,
+    load_reply_records,
     merge_reply_records_into_match_file,
+    save_replied_ids,
 )
 
 
@@ -68,6 +71,28 @@ def main() -> None:
         help="Directory to write match_audit.json and replied_items.json",
     )
 
+    import_parser = subparsers.add_parser(
+        "import-json",
+        help="Import existing JSON state into bot_state.sqlite",
+    )
+    import_parser.add_argument(
+        "--db",
+        type=Path,
+        default=Path("data/bot_state.sqlite"),
+        help="Path to bot_state.sqlite",
+    )
+    import_parser.add_argument(
+        "--replied-items",
+        type=Path,
+        default=Path("data/replied_items.json"),
+        help="Path to replied_items.json",
+    )
+    import_parser.add_argument(
+        "--match-audit",
+        type=Path,
+        help="Optional path to match_audit.json",
+    )
+
     args = parser.parse_args()
     if args.command == "dedupe-match-audit":
         dedupe_match_audit(args.path, args.dry_run)
@@ -75,6 +100,8 @@ def main() -> None:
         merge_reply_audit(args.match_path, args.reply_path)
     elif args.command == "export-sqlite":
         export_sqlite(args.db, args.out)
+    elif args.command == "import-json":
+        import_json(args.db, args.replied_items, args.match_audit)
 
 
 def dedupe_match_audit(path: Path, dry_run: bool = False) -> tuple[int, int]:
@@ -132,6 +159,28 @@ def export_sqlite(db_path: Path, out_dir: Path) -> tuple[int, int]:
         f"match_records={len(match_records)} replied_items={len(replied_items)}"
     )
     return len(match_records), len(replied_items)
+
+
+def import_json(
+    db_path: Path,
+    replied_items_path: Path,
+    match_audit_path: Path | None = None,
+) -> tuple[int, int]:
+    """Import replied IDs and optional match records into SQLite."""
+    replied_items = json.loads(replied_items_path.read_text(encoding="utf-8"))
+    if not isinstance(replied_items, list):
+        raise ValueError(f"{replied_items_path} must contain a JSON list")
+    save_replied_ids(db_path, {str(item_id) for item_id in replied_items})
+
+    match_records = load_reply_records(match_audit_path) if match_audit_path else []
+    for record in match_records:
+        add_match_record(db_path, record)
+
+    print(
+        "sqlite_import "
+        f"db={db_path} replied_items={len(replied_items)} match_records={len(match_records)}"
+    )
+    return len(replied_items), len(match_records)
 
 
 def _write_json(path: Path, data: object) -> None:

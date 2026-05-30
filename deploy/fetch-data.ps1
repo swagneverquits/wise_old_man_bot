@@ -2,7 +2,8 @@ param(
     [string]$Name = "",
     [string]$HostAlias = "oracle-reddit-bot",
     [string]$RemoteRepo = "~/reddit_reply_bot",
-    [string]$OutputName = ""
+    [string]$OutputName = "",
+    [switch]$SkipExport
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,17 @@ if (-not $Name) {
     $remotePath = "${HostAlias}:${RemoteRepo}/data/*"
     scp -r $remotePath $outputDir
     Write-Host "Fetched $remotePath -> $outputDir"
+
+    $dbPath = Join-Path $outputDir "bot_state.sqlite"
+    if ((Test-Path $dbPath) -and -not $SkipExport) {
+        Push-Location (Join-Path $PSScriptRoot "..")
+        try {
+            python -m reddit_reply_bot.maintenance export-sqlite --db $dbPath --out $outputDir
+        }
+        finally {
+            Pop-Location
+        }
+    }
     exit 0
 }
 

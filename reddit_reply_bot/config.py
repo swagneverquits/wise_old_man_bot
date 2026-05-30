@@ -24,7 +24,7 @@ class BotConfig:
     subreddits: str
     quotes_path: Path
     blocked_users_path: Path
-    replied_items_path: Path
+    state_db_path: Path
     dry_run: bool
     allow_self_reply: bool
 
@@ -47,7 +47,7 @@ def load_config(env_file: Path | None = None, load_default_dotenv: bool = True) 
         subreddits=_env("REDDIT_SUBREDDITS", "test"),
         quotes_path=Path(_env("QUOTES_PATH", "config/quotes.json")),
         blocked_users_path=Path(_env("BLOCKED_USERS_PATH", "config/blocked_users.json")),
-        replied_items_path=Path(_env("REPLIED_ITEMS_PATH", "data/replied_items.json")),
+        state_db_path=Path(_env("STATE_DB_PATH", "data/bot_state.sqlite")),
         dry_run=_bool_env("DRY_RUN", default=True),
         allow_self_reply=_bool_env("ALLOW_SELF_REPLY", default=False),
     )

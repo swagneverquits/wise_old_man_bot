@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from reddit_reply_bot.moderation import delete_low_karma_replies
-from reddit_reply_bot.storage import load_reply_records, save_reply_records
+from reddit_reply_bot.storage import load_match_records, save_match_records
 
 
 class Comment:
@@ -27,8 +27,8 @@ class Reddit:
 class ModerationTests(unittest.TestCase):
     def test_deletes_active_reply_below_karma_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "match_audit.json"
-            save_reply_records(
+            path = Path(directory) / "bot_state.sqlite"
+            save_match_records(
                 path,
                 [
                     {
@@ -50,7 +50,7 @@ class ModerationTests(unittest.TestCase):
                 logger=logging.getLogger("test-delete-low-karma"),
             )
 
-            records = load_reply_records(path)
+            records = load_match_records(path)
 
             self.assertTrue(comment.deleted)
             self.assertEqual(results["deleted"], 1)
@@ -59,8 +59,8 @@ class ModerationTests(unittest.TestCase):
 
     def test_keeps_active_reply_at_or_above_karma_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "match_audit.json"
-            save_reply_records(path, [{"reply_status": "active", "bot_reply_id": "reply123"}])
+            path = Path(directory) / "bot_state.sqlite"
+            save_match_records(path, [{"item_id": "parent123", "reply_status": "active", "bot_reply_id": "reply123"}])
             comment = Comment(score=-5)
 
             results = delete_low_karma_replies(
@@ -70,7 +70,7 @@ class ModerationTests(unittest.TestCase):
                 logger=logging.getLogger("test-keep-low-karma"),
             )
 
-            records = load_reply_records(path)
+            records = load_match_records(path)
 
             self.assertFalse(comment.deleted)
             self.assertEqual(results["kept"], 1)
@@ -79,8 +79,8 @@ class ModerationTests(unittest.TestCase):
 
     def test_ignores_matched_items_without_posted_replies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "match_audit.json"
-            save_reply_records(path, [{"result": "tracker_context", "item_id": "comment123"}])
+            path = Path(directory) / "bot_state.sqlite"
+            save_match_records(path, [{"result": "tracker_context", "item_id": "comment123"}])
 
             results = delete_low_karma_replies(
                 reddit=Reddit({}),

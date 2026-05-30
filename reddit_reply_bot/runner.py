@@ -98,7 +98,7 @@ def main() -> None:
             subreddit=subreddit,
             limit=limit,
             quotes=quotes,
-            replied_store_path=config.replied_items_path,
+            replied_store_path=config.state_db_path,
             blocked_users=blocked_users,
             bot_username=config.reddit.username,
             allow_self_reply=config.allow_self_reply,
@@ -114,7 +114,7 @@ def main() -> None:
 
         delete_low_karma_replies(
             reddit=reddit,
-            reply_records_path=match_audit_path(config.replied_items_path),
+            reply_records_path=match_audit_path(config.state_db_path),
             karma_threshold=args.low_karma_threshold,
             logger=LOGGER,
         )

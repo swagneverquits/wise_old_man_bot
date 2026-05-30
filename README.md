@@ -12,8 +12,8 @@ The bot polls recent comments and submissions, looks for mentions of `wise old m
 - Ignores compact forms like `WiseOldMan`, `wiseoldman`, `wise oldman`, and `wiseold man`.
 - Picks a random quote from `config/quotes.json`.
 - Replaces `[player name]` in quotes with the Reddit author's username.
-- Records replied parent item IDs in `data/replied_items.json` so it does not reply twice to the same comment/post.
-- Records every matched `wise old man` trigger in `data/match_audit.json`, including skipped tracker-site context and posted-reply metadata.
+- Records replied parent item IDs in `data/bot_state.sqlite` so it does not reply twice to the same comment/post.
+- Records every matched `wise old man` trigger in `data/bot_state.sqlite`, including skipped tracker-site context and posted-reply metadata.
 - Deletes bot replies below the configured low-karma threshold during periodic moderation checks.
 
 ## Configuration
@@ -35,7 +35,7 @@ REDDIT_USER_AGENT=wise-old-man-bot by u/wise-old-man-bot
 REDDIT_SUBREDDITS=2007scape
 QUOTES_PATH=config/quotes.json
 BLOCKED_USERS_PATH=config/blocked_users.json
-REPLIED_ITEMS_PATH=data/replied_items.json
+STATE_DB_PATH=data/bot_state.sqlite
 DRY_RUN=true
 ALLOW_SELF_REPLY=false
 ```
@@ -53,10 +53,17 @@ The bot writes runtime state under `data/`.
 
 | File | Purpose |
 | --- | --- |
-| `data/replied_items.json` | Parent comment/submission IDs the bot has already handled. |
-| `data/match_audit.json` | Every current-text trigger and final result, including skipped matches, posted reply IDs/text, and reply karma moderation state. |
+| `data/bot_state.sqlite` | Runtime source of truth for handled item IDs and match audit records. |
+| `data/from-server/replied_items.json` | Readable replied-ID export created after fetching server data. |
+| `data/from-server/match_audit.json` | Readable audit export created after fetching server data. |
 
 These files are ignored by Git. In Docker, `./data` is mounted into the container so state survives rebuilds.
+
+Fetch the server database and generate readable JSON exports locally:
+
+```powershell
+.\deploy\fetch-data.ps1
+```
 
 ## Local Environment
 
@@ -89,7 +96,7 @@ Run a one-shot poll:
 conda run -n reddit-reply-bot python -m reddit_reply_bot --limit 25
 ```
 
-In dry-run mode, the bot logs intended replies but does not post to Reddit and does not write the parent item ID to `data/replied_items.json`.
+In dry-run mode, the bot logs intended replies but does not post to Reddit and does not write the parent item ID to `data/bot_state.sqlite`.
 
 ## Continuous Mode
 

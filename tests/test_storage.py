@@ -5,6 +5,7 @@ from pathlib import Path
 from reddit_reply_bot.storage import (
     add_match_record,
     dedupe_match_records_file,
+    load_match_records,
     load_replied_ids,
     load_reply_records,
     mark_replied,
@@ -18,13 +19,13 @@ from reddit_reply_bot.storage import (
 class StorageTests(unittest.TestCase):
     def test_missing_file_loads_empty_set(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "replied_items.json"
+            path = Path(directory) / "bot_state.sqlite"
 
             self.assertEqual(load_replied_ids(path), set())
 
     def test_saves_and_loads_replied_ids(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "replied_items.json"
+            path = Path(directory) / "bot_state.sqlite"
 
             save_replied_ids(path, {"b", "a"})
 
@@ -32,21 +33,21 @@ class StorageTests(unittest.TestCase):
 
     def test_mark_replied_persists_item_id(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "replied_items.json"
+            path = Path(directory) / "bot_state.sqlite"
 
             updated_ids = mark_replied(path, "abc123")
 
             self.assertEqual(updated_ids, {"abc123"})
             self.assertEqual(load_replied_ids(path), {"abc123"})
 
-    def test_match_audit_path_is_colocated_with_replied_items(self) -> None:
-        path = Path("data/replied_items.json")
+    def test_match_audit_path_uses_state_database(self) -> None:
+        path = Path("data/bot_state.sqlite")
 
-        self.assertEqual(match_audit_path(path), Path("data/match_audit.json"))
+        self.assertEqual(match_audit_path(path), path)
 
     def test_add_match_record_preserves_posted_reply_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "match_audit.json"
+            path = Path(directory) / "bot_state.sqlite"
 
             add_match_record(
                 path,
@@ -61,19 +62,13 @@ class StorageTests(unittest.TestCase):
             )
             add_match_record(path, {"item_id": "comment123", "result": "already_replied"})
 
-            self.assertEqual(
-                load_reply_records(path),
-                [
-                    {
-                        "item_id": "comment123",
-                        "result": "posted",
-                        "bot_reply_id": "reply123",
-                        "bot_reply_text": "hello",
-                        "reply_status": "active",
-                        "last_score": 3,
-                    }
-                ],
-            )
+            record = load_match_records(path)[0]
+            self.assertEqual(record["item_id"], "comment123")
+            self.assertEqual(record["result"], "posted")
+            self.assertEqual(record["bot_reply_id"], "reply123")
+            self.assertEqual(record["bot_reply_text"], "hello")
+            self.assertEqual(record["reply_status"], "active")
+            self.assertEqual(record["last_score"], 3)
 
     def test_dedupe_match_records_file_keeps_latest_and_drops_legacy_fields(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

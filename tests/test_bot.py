@@ -6,7 +6,7 @@ from pathlib import Path
 
 from reddit_reply_bot.bot import process_comment, process_submission
 from reddit_reply_bot.runtime import Cooldown
-from reddit_reply_bot.storage import load_replied_ids, load_reply_records, match_audit_path
+from reddit_reply_bot.storage import load_match_records, load_replied_ids, save_replied_ids
 
 
 class Author:
@@ -89,7 +89,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_dry_run_comment_logs_intended_reply_without_posting_or_persisting(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             replies: list[str] = []
             logger = logging.getLogger("test-dry-run-comment")
 
@@ -115,7 +115,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_live_comment_posts_and_persists_reply(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             replies: list[str] = []
             logger = logging.getLogger("test-live-comment")
 
@@ -139,7 +139,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_live_comment_records_reply_metadata_in_match_audit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             logger = logging.getLogger("test-live-comment-audit")
 
             def reply(_: str) -> Reply:
@@ -158,7 +158,7 @@ class BotProcessingTests(unittest.TestCase):
                 chooser=random.Random(1),
             )
 
-            records = load_reply_records(match_audit_path(store_path))
+            records = load_match_records(store_path)
 
             self.assertEqual(result.result, "posted")
             self.assertEqual(records[0]["bot_reply_id"], "botreply123")
@@ -172,7 +172,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_tracker_context_skip_records_match_audit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             replies: list[str] = []
 
             result = self.process_test_comment(
@@ -182,7 +182,7 @@ class BotProcessingTests(unittest.TestCase):
                 reply=replies.append,
                 logger_name="test-tracker-context-match-audit",
             )
-            records = load_reply_records(match_audit_path(store_path))
+            records = load_match_records(store_path)
 
             self.assertFalse(result.did_reply)
             self.assertEqual(result.result, "tracker_context")
@@ -196,7 +196,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_submission_body_can_trigger_dry_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             logger = logging.getLogger("test-dry-run-submission-body")
 
             result = process_submission(
@@ -221,7 +221,7 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_cooldown_skip_does_not_post(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             replies: list[str] = []
             logger = logging.getLogger("test-cooldown")
             cooldown = Cooldown(seconds=10, clock=lambda: 100)
@@ -246,8 +246,8 @@ class BotProcessingTests(unittest.TestCase):
 
     def test_already_replied_match_is_quietly_skipped(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            store_path = Path(directory) / "replied_items.json"
-            store_path.write_text('["comment123"]', encoding="utf-8")
+            store_path = Path(directory) / "bot_state.sqlite"
+            save_replied_ids(store_path, {"comment123"})
             replies: list[str] = []
             logger = logging.getLogger("test-already-replied")
 

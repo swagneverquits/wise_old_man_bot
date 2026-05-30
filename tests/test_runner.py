@@ -58,7 +58,7 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             comment = Comment()
             submission = Submission()
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
 
             summary = poll_subreddit(
                 subreddit=Subreddit([comment], [submission]),
@@ -88,7 +88,7 @@ class RunnerTests(unittest.TestCase):
             comment.body = "nothing relevant"
             submission = Submission()
             submission.selftext = "nothing relevant"
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
 
             summary = poll_subreddit(
                 subreddit=Subreddit([comment], [submission]),
@@ -115,7 +115,7 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             comment = Comment()
             submission = Submission()
-            store_path = Path(directory) / "replied_items.json"
+            store_path = Path(directory) / "bot_state.sqlite"
             seen_items = SeenItems.empty()
 
             first_summary = poll_subreddit(

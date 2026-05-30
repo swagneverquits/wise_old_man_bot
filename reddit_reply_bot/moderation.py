@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from reddit_reply_bot.storage import load_reply_records, save_reply_records
+from reddit_reply_bot.storage import load_match_records, save_match_records
 
 
 def delete_low_karma_replies(
@@ -18,7 +18,7 @@ def delete_low_karma_replies(
     logger: logging.Logger,
 ) -> Counter[str]:
     """Delete active bot replies with score below the configured threshold."""
-    records = load_reply_records(reply_records_path)
+    records = load_match_records(reply_records_path)
     results: Counter[str] = Counter()
     changed = False
 
@@ -59,6 +59,6 @@ def delete_low_karma_replies(
         )
 
     if changed:
-        save_reply_records(reply_records_path, records)
+        save_match_records(reply_records_path, records)
 
     return results
